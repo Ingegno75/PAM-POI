@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="PAM">
+<meta name="theme-color" content="#1a1a2e">
+
+<title>PAM - POI App Manager</title>
+
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon.png">
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Space+Grotesk:wght@400;600;700&display=swap" rel="stylesheet">
+
+<style>
+  :root {
+    --bg: #0f0f1a;
+    --surface: #1a1a2e;
+    --surface2: #16213e;
+    --accent: #00d4ff;
+    --accent2: #7c3aed;
+    --text: #e8e8f0;
+    --text-dim: #8888aa;
+    --border: rgba(0,212,255,0.15);
+    --radius: 12px;
+    --safe-top: env(safe-area-inset-top, 0px);
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Space Grotesk', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    padding-top: var(--safe-top);
+    padding-bottom: var(--safe-bottom);
+  }
+
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+    gap: 8px;
+  }
+
+  .logo {
+    font-family: 'DM Mono', monospace;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--accent);
+    letter-spacing: 0.08em;
+    white-space: nowrap;
+  }
+
+  .logo span { color: var(--text-dim); }
+
+  .searchbar {
+    display: flex;
+    gap: 6px;
+    flex: 1;
+    max-width: 400px;
+  }
+
+  .searchbar input {
+    flex: 1;
+    padding: 8px 12px;
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 14px;
+    outline: none;
+    transition: border-color 0.2s;
+    min-width: 0;
+  }
+
+  .searchbar input:focus { border-color: var(--accent); }
+  .searchbar input::placeholder { color: var(--text-dim); }
+
+  .btn {
+    padding: 8px 12px;
+    border: none;
+    border-radius: var(--radius);
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.2s, transform 0.1s;
+    white-space: nowrap;
+  }
+
+  .btn:active { transform: scale(0.96); }
+  .btn-primary { background: var(--accent); color: #000; }
+  .btn-ghost { background: rgba(255,255,255,0.08); color: var(--text); }
+  .btn-danger { background: rgba(255,80,80,0.15); color: #ff5050; }
+  .btn-export { background: var(--accent2); color: #fff; }
+
+  #map {
+    flex: 1;
+    min-height: 0;
+  }
+
+  /* Override Leaflet for dark theme */
+  .leaflet-container { background: #1a1a2e !important; }
+  .leaflet-popup-content-wrapper {
+    background: var(--surface2);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+  }
+  .leaflet-popup-tip { background: var(--surface2); }
+
+  .bottom-panel {
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    flex-shrink: 0;
+    max-height: 40vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .panel-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border);
+    flex-wrap: wrap;
+  }
+
+  .poi-count {
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    color: var(--text-dim);
+    margin-left: auto;
+  }
+
+  .file-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 12px;
+    border-radius: var(--radius);
+    background: rgba(255,255,255,0.06);
+    color: var(--text);
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s;
+    white-space: nowrap;
+  }
+
+  .file-label:hover { background: rgba(255,255,255,0.1); }
+  #fileInput { display: none; }
+
+  ul#list {
+    list-style: none;
+    padding: 8px 12px;
+    overflow-y: auto;
+    flex: 1;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  li {
+    background: var(--surface2);
+    margin: 4px 0;
+    padding: 10px 12px;
+    border-radius: var(--radius);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    border: 1px solid transparent;
+    transition: border-color 0.2s;
+  }
+
+  li.selected { border-color: var(--accent); }
+
+  li input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    accent-color: var(--accent);
+    flex-shrink: 0;
+    cursor: pointer;
+  }
+
+  .poi-info { flex: 1; min-width: 0; }
+
+  .poi-name {
+    font-size: 13px;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .poi-coords {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--text-dim);
+    margin-top: 2px;
+  }
+
+  .btn-del {
+    background: none;
+    border: none;
+    color: var(--text-dim);
+    font-size: 16px;
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 6px;
+    transition: color 0.2s, background 0.2s;
+    flex-shrink: 0;
+  }
+
+  .btn-del:hover { color: #ff5050; background: rgba(255,80,80,0.1); }
+
+  .empty-state {
+    text-align: center;
+    color: var(--text-dim);
+    font-size: 13px;
+    padding: 20px;
+  }
+
+  .toast {
+    position: fixed;
+    bottom: calc(var(--safe-bottom) + 20px);
+    left: 50%;
+    transform: translateX(-50%) translateY(80px);
+    background: var(--accent);
+    color: #000;
+    padding: 10px 18px;
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 600;
+    z-index: 9999;
+    transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1);
+    pointer-events: none;
+    white-space: nowrap;
+  }
+
+  .toast.show { transform: translateX(-50%) translateY(0); }
+
+  @media (max-width: 500px) {
+    header { flex-wrap: wrap; }
+    .logo { width: 100%; text-align: center; }
+    .searchbar { max-width: 100%; }
+  }
+</style>
+
+</head>
+
+<body>
+
+<header>
+  <div class="logo">PAM <span>/ POI App Manager</span></div>
+  <div class="searchbar">
+    <input id="search" placeholder="Cerca indirizzo…" onkeydown="if(event.key==='Enter') doSearch()">
+    <button class="btn btn-primary" onclick="doSearch()">🔍</button>
+    <button class="btn btn-ghost" onclick="clearSearch()">✕</button>
+  </div>
+</header>
+
+<div id="map"></div>
+
+<div class="bottom-panel">
+  <div class="panel-toolbar">
+    <label class="file-label" for="fileInput">📂 Importa GPX</label>
+    <input type="file" id="fileInput" accept=".gpx">
+    <button class="btn btn-export" onclick="exportGPX()">⬇︎ Export GPX</button>
+    <button class="btn btn-danger" onclick="clearAll()">🗑 Svuota</button>
+    <span class="poi-count" id="countLabel">0 POI</span>
+  </div>
+  <ul id="list"></ul>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  // --- Map setup ---
+  const map = L.map('map', { zoomControl: true }).setView([45.07, 7.68], 10);
+
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+    attribution: '© OpenStreetMap'
+  }).addTo(map);
+
+  let waypoints = [];
+  let markers = [];
+
+  // --- Custom marker ---
+  function makeIcon(selected) {
+    return L.divIcon({
+      className: '',
+      html: `<div style="width:14px;height:14px;border-radius:50%;background:${selected ? '#00d4ff' : '#7c3aed'};border:2px solid #fff;box-shadow:0 0 6px rgba(0,212,255,0.6)"></div>`,
+      iconSize: [14, 14],
+      iconAnchor: [7, 7]
+    });
+  }
+
+  // --- Render ---
+  function render() {
+    markers.forEach(m => map.removeLayer(m));
+    markers = [];
+
+    const list = document.getElementById('list');
+    list.innerHTML = '';
+
+    if (waypoints.length === 0) {
+      list.innerHTML = '<li class="empty-state">Nessun POI caricato. Cerca un indirizzo o importa un file GPX.</li>';
+      document.getElementById('countLabel').textContent = '0 POI';
+      return;
+    }
+
+    const sel = waypoints.filter(w => w.selected).length;
+    document.getElementById('countLabel').textContent = `${sel}/${waypoints.length} selezionati`;
+
+    waypoints.forEach((w, i) => {
+      const marker = L.marker([w.lat, w.lon], { icon: makeIcon(w.selected) })
+        .addTo(map)
+        .bindPopup(`<b>${w.name}</b><br><small>${w.lat.toFixed(5)}, ${w.lon.toFixed(5)}</small>`);
+
+      marker.on('click', () => {
+        w.selected = !w.selected;
+        render();
+      });
+
+      markers.push(marker);
+
+      const li = document.createElement('li');
+      if (w.selected) li.classList.add('selected');
+
+      const chk = document.createElement('input');
+      chk.type = 'checkbox';
+      chk.checked = w.selected;
+      chk.onchange = () => { w.selected = chk.checked; render(); };
+
+      const info = document.createElement('div');
+      info.className = 'poi-info';
+      info.innerHTML = `<div class="poi-name">${w.name}</div><div class="poi-coords">${w.lat.toFixed(5)}, ${w.lon.toFixed(5)}</div>`;
+
+      info.addEventListener('click', () => {
+        map.setView([w.lat, w.lon], 15);
+        markers[i].openPopup();
+      });
+
+      const del = document.createElement('button');
+      del.className = 'btn-del';
+      del.textContent = '✕';
+      del.onclick = () => { waypoints.splice(i, 1); render(); };
+
+      li.appendChild(chk);
+      li.appendChild(info);
+      li.appendChild(del);
+      list.appendChild(li);
+    });
+  }
+
+  // --- Search ---
+  function doSearch() {
+    const q = document.getElementById('search').value.trim();
+    if (!q) return;
+
+    fetch('https://nominatim.openstreetmap.org/search?format=json&q=' + encodeURIComponent(q), {
+      headers: { 'Accept-Language': 'it' }
+    })
+    .then(r => r.json())
+    .then(data => {
+      if (!data.length) { showToast('Nessun risultato trovato'); return; }
+      const r = data[0];
+      const wp = {
+        name: r.display_name,
+        lat: parseFloat(r.lat),
+        lon: parseFloat(r.lon),
+        selected: true
+      };
+      waypoints.push(wp);
+      map.setView([wp.lat, wp.lon], 13);
+      render();
+      showToast('POI aggiunto ✓');
+    })
+    .catch(() => showToast('Errore nella ricerca'));
+  }
+
+  function clearSearch() {
+    document.getElementById('search').value = '';
+    document.getElementById('search').focus();
+  }
+
+  function clearAll() {
+    if (waypoints.length === 0) return;
+    if (confirm(`Eliminare tutti i ${waypoints.length} POI?`)) {
+      waypoints = [];
+      render();
+    }
+  }
+
+  // --- Import GPX ---
+  document.getElementById('fileInput').addEventListener('change', function(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function() {
+      const xml = new DOMParser().parseFromString(reader.result, 'text/xml');
+      const pts = xml.getElementsByTagName('wpt');
+      let count = 0;
+      for (const p of pts) {
+        const lat = parseFloat(p.getAttribute('lat'));
+        const lon = parseFloat(p.getAttribute('lon'));
+        const nameNode = p.getElementsByTagName('name')[0];
+        waypoints.push({
+          name: nameNode ? nameNode.textContent : 'Waypoint',
+          lat, lon, selected: true
+        });
+        count++;
+      }
+      if (count > 0) {
+        const bounds = L.latLngBounds(waypoints.map(w => [w.lat, w.lon]));
+        map.fitBounds(bounds, { padding: [20, 20] });
+        render();
+        showToast(`${count} POI importati ✓`);
+      } else {
+        showToast('Nessun waypoint trovato nel file');
+      }
+    };
+    reader.readAsText(file);
+    this.value = '';
+  });
+
+  // --- Export GPX ---
+  function exportGPX() {
+    const selected = waypoints.filter(w => w.selected);
+    if (!selected.length) { showToast('Seleziona almeno un POI'); return; }
+
+    let xml = '<?xml version="1.0" encoding="UTF-8"?>\n';
+    xml += '<gpx version="1.1" creator="PAM-POI-Manager" xmlns="http://www.topografix.com/GPX/1/1">\n';
+    selected.forEach(w => {
+      xml += `  <wpt lat="${w.lat}" lon="${w.lon}"><name>${escapeXml(w.name)}</name></wpt>\n`;
+    });
+    xml += '</gpx>';
+
+    const blob = new Blob([xml], { type: 'application/gpx+xml' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'POI_export.gpx';
+    a.click();
+    showToast(`${selected.length} POI esportati ✓`);
+  }
+
+  function escapeXml(s) {
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  // --- Toast ---
+  let toastTimer;
+  function showToast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => t.classList.remove('show'), 2500);
+  }
+
+  // --- Service Worker ---
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js').catch(console.error);
+  }
+
+  render();
+</script>
+
+</body>
+</html>
