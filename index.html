@@ -1,5 +1,4 @@
 <!DOCTYPE html>
-
 <html lang="it">
 <head>
 <meta charset="utf-8">
@@ -7,483 +6,845 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="PAM">
-<meta name="theme-color" content="#1a1a2e">
-
+<meta name="theme-color" content="#111827">
 <title>PAM - POI App Manager</title>
-
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon.png">
 <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-
-<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Space+Grotesk:wght@400;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
 <style>
-  :root {
-    --bg: #0f0f1a;
-    --surface: #1a1a2e;
-    --surface2: #16213e;
-    --accent: #00d4ff;
-    --accent2: #7c3aed;
-    --text: #e8e8f0;
-    --text-dim: #8888aa;
-    --border: rgba(0,212,255,0.15);
-    --radius: 12px;
-    --safe-top: env(safe-area-inset-top, 0px);
-    --safe-bottom: env(safe-area-inset-bottom, 0px);
-  }
+:root {
+  --bg:        #0d1117;
+  --surface:   #161b22;
+  --surface2:  #21262d;
+  --surface3:  #30363d;
+  --accent:    #58a6ff;
+  --accent2:   #3fb950;
+  --warn:      #f85149;
+  --amber:     #e3b341;
+  --text:      #c9d1d9;
+  --text-dim:  #8b949e;
+  --border:    rgba(48,54,61,0.8);
+  --r:         8px;
+  --safe-top:  env(safe-area-inset-top,0px);
+  --safe-bot:  env(safe-area-inset-bottom,0px);
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{
+  font-family:'Outfit',sans-serif;
+  background:var(--bg);
+  color:var(--text);
+  height:100dvh;
+  display:flex;
+  flex-direction:column;
+  overflow:hidden;
+  padding-top:var(--safe-top);
+}
 
-  * { box-sizing: border-box; margin: 0; padding: 0; }
+/* HEADER */
+header{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  padding:8px 12px;
+  background:var(--surface);
+  border-bottom:1px solid var(--border);
+  flex-shrink:0;
+  flex-wrap:wrap;
+}
+.logo{
+  font-family:'IBM Plex Mono',monospace;
+  font-size:13px;
+  font-weight:600;
+  color:var(--accent);
+  letter-spacing:.1em;
+  white-space:nowrap;
+}
+.search-wrap{
+  display:flex;
+  gap:6px;
+  flex:1;
+  min-width:180px;
+}
+.search-wrap input{
+  flex:1;
+  padding:7px 11px;
+  background:var(--bg);
+  border:1px solid var(--border);
+  border-radius:var(--r);
+  color:var(--text);
+  font-family:'Outfit',sans-serif;
+  font-size:13px;
+  outline:none;
+  min-width:0;
+}
+.search-wrap input:focus{border-color:var(--accent);}
+.search-wrap input::placeholder{color:var(--text-dim);}
+.btn{
+  display:inline-flex;
+  align-items:center;
+  gap:5px;
+  padding:7px 11px;
+  border:none;
+  border-radius:var(--r);
+  font-family:'Outfit',sans-serif;
+  font-size:13px;
+  font-weight:500;
+  cursor:pointer;
+  white-space:nowrap;
+  transition:opacity .15s,transform .1s;
+}
+.btn:active{transform:scale(.95);}
+.btn-blue{background:var(--accent);color:#000;}
+.btn-green{background:var(--accent2);color:#000;}
+.btn-dim{background:var(--surface3);color:var(--text);}
+.btn-red{background:rgba(248,81,73,.15);color:var(--warn);border:1px solid rgba(248,81,73,.3);}
+.btn-amber{background:rgba(227,179,65,.12);color:var(--amber);border:1px solid rgba(227,179,65,.3);}
 
-  body {
-    font-family: 'Space Grotesk', sans-serif;
-    background: var(--bg);
-    color: var(--text);
-    height: 100dvh;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-    padding-top: var(--safe-top);
-    padding-bottom: var(--safe-bottom);
-  }
+/* MAP */
+#map{
+  flex:1 1 auto;
+  min-height:120px;
+}
+.leaflet-popup-content-wrapper{
+  background:var(--surface2);
+  color:var(--text);
+  border:1px solid var(--border);
+  border-radius:var(--r);
+  box-shadow:0 4px 24px rgba(0,0,0,.6);
+}
+.leaflet-popup-tip{background:var(--surface2);}
+.leaflet-popup-close-button{color:var(--text-dim)!important;}
 
-  header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 12px 16px;
-    background: var(--surface);
-    border-bottom: 1px solid var(--border);
-    flex-shrink: 0;
-    gap: 8px;
-  }
+/* BOTTOM PANEL */
+.bottom{
+  background:var(--surface);
+  border-top:1px solid var(--border);
+  flex-shrink:0;
+  display:flex;
+  flex-direction:column;
+  max-height:45dvh;
+  overflow:hidden;
+}
+.panel-tabs{
+  display:flex;
+  border-bottom:1px solid var(--border);
+  flex-shrink:0;
+}
+.tab{
+  padding:8px 14px;
+  font-size:12px;
+  font-weight:600;
+  color:var(--text-dim);
+  cursor:pointer;
+  border-bottom:2px solid transparent;
+  transition:color .15s,border-color .15s;
+  font-family:'IBM Plex Mono',monospace;
+  letter-spacing:.04em;
+  white-space:nowrap;
+}
+.tab.active{color:var(--accent);border-bottom-color:var(--accent);}
+.tab-count{
+  display:inline-block;
+  background:var(--surface3);
+  color:var(--text-dim);
+  border-radius:10px;
+  padding:0 6px;
+  font-size:10px;
+  margin-left:4px;
+}
+.tab.active .tab-count{background:rgba(88,166,255,.2);color:var(--accent);}
 
-  .logo {
-    font-family: 'DM Mono', monospace;
-    font-size: 13px;
-    font-weight: 500;
-    color: var(--accent);
-    letter-spacing: 0.08em;
-    white-space: nowrap;
-  }
+.toolbar{
+  display:flex;
+  gap:6px;
+  padding:8px 10px;
+  flex-wrap:wrap;
+  border-bottom:1px solid var(--border);
+  flex-shrink:0;
+}
+.panel-body{
+  overflow-y:auto;
+  flex:1;
+  -webkit-overflow-scrolling:touch;
+}
+.panel-section{display:none;}
+.panel-section.active{display:block;}
 
-  .logo span { color: var(--text-dim); }
+/* TABLES */
+table{width:100%;border-collapse:collapse;font-size:12px;}
+thead th{
+  position:sticky;
+  top:0;
+  background:var(--surface2);
+  padding:6px 8px;
+  text-align:left;
+  font-family:'IBM Plex Mono',monospace;
+  font-size:10px;
+  font-weight:600;
+  color:var(--text-dim);
+  letter-spacing:.06em;
+  border-bottom:1px solid var(--border);
+  z-index:2;
+}
+tbody tr{
+  border-bottom:1px solid rgba(48,54,61,.4);
+  cursor:pointer;
+  transition:background .1s;
+}
+tbody tr:hover{background:var(--surface2);}
+tbody tr.sel{background:rgba(88,166,255,.08);}
+tbody tr.sel td:first-child{border-left:2px solid var(--accent);}
+tbody tr.gps-row.sel{background:rgba(63,185,80,.08);}
+tbody tr.gps-row.sel td:first-child{border-left:2px solid var(--accent2);}
+td{padding:7px 8px;vertical-align:middle;}
+td.mono{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--text-dim);}
+td.name-cell{max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.del-btn{
+  background:none;
+  border:none;
+  color:var(--text-dim);
+  font-size:14px;
+  cursor:pointer;
+  padding:2px 6px;
+  border-radius:4px;
+  transition:color .15s,background .15s;
+}
+.del-btn:hover{color:var(--warn);background:rgba(248,81,73,.1);}
+.empty{text-align:center;padding:20px;color:var(--text-dim);font-size:12px;}
 
-  .searchbar {
-    display: flex;
-    gap: 6px;
-    flex: 1;
-    max-width: 400px;
-  }
+/* GPS row badge */
+.gps-badge{
+  display:inline-flex;
+  align-items:center;
+  gap:4px;
+  font-size:10px;
+  font-weight:600;
+  color:var(--accent2);
+  background:rgba(63,185,80,.12);
+  border-radius:4px;
+  padding:1px 5px;
+  margin-right:4px;
+}
+.pulse{
+  width:6px;height:6px;border-radius:50%;
+  background:var(--accent2);
+  animation:pulse 1.5s infinite;
+}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.7)}}
 
-  .searchbar input {
-    flex: 1;
-    padding: 8px 12px;
-    border-radius: var(--radius);
-    border: 1px solid var(--border);
-    background: var(--bg);
-    color: var(--text);
-    font-family: 'Space Grotesk', sans-serif;
-    font-size: 14px;
-    outline: none;
-    transition: border-color 0.2s;
-    min-width: 0;
-  }
+/* TRACK table */
+.track-btn{
+  background:var(--surface3);
+  border:none;
+  color:var(--accent);
+  font-size:12px;
+  cursor:pointer;
+  padding:3px 8px;
+  border-radius:4px;
+  font-family:'IBM Plex Mono',monospace;
+  transition:background .15s;
+}
+.track-btn:hover{background:rgba(88,166,255,.2);}
 
-  .searchbar input:focus { border-color: var(--accent); }
-  .searchbar input::placeholder { color: var(--text-dim); }
+/* ELEVATION MODAL */
+#elev-modal{
+  display:none;
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,.75);
+  z-index:9999;
+  align-items:center;
+  justify-content:center;
+  padding:16px;
+}
+#elev-modal.open{display:flex;}
+.modal-box{
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:12px;
+  width:100%;
+  max-width:640px;
+  max-height:90dvh;
+  display:flex;
+  flex-direction:column;
+  overflow:hidden;
+  box-shadow:0 16px 60px rgba(0,0,0,.8);
+}
+.modal-header{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding:12px 16px;
+  border-bottom:1px solid var(--border);
+  flex-shrink:0;
+}
+.modal-title{
+  font-family:'IBM Plex Mono',monospace;
+  font-size:13px;
+  font-weight:600;
+  color:var(--accent);
+}
+.modal-sub{font-size:12px;color:var(--text-dim);margin-top:2px;}
+.modal-close{
+  background:none;border:none;
+  color:var(--text-dim);font-size:20px;cursor:pointer;
+  padding:0 4px;line-height:1;
+}
+.modal-body{padding:16px;flex:1;overflow:auto;}
+canvas#elev-canvas{
+  width:100%;
+  height:200px;
+  display:block;
+  border-radius:var(--r);
+}
+.elev-stats{
+  display:flex;
+  gap:12px;
+  flex-wrap:wrap;
+  margin-top:12px;
+}
+.stat-box{
+  flex:1;
+  min-width:80px;
+  background:var(--surface2);
+  border:1px solid var(--border);
+  border-radius:var(--r);
+  padding:10px 12px;
+}
+.stat-label{font-size:10px;color:var(--text-dim);font-family:'IBM Plex Mono',monospace;letter-spacing:.06em;text-transform:uppercase;}
+.stat-val{font-family:'IBM Plex Mono',monospace;font-size:16px;font-weight:600;color:var(--text);margin-top:2px;}
 
-  .btn {
-    padding: 8px 12px;
-    border: none;
-    border-radius: var(--radius);
-    font-family: 'Space Grotesk', sans-serif;
-    font-size: 14px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: opacity 0.2s, transform 0.1s;
-    white-space: nowrap;
-  }
-
-  .btn:active { transform: scale(0.96); }
-  .btn-primary { background: var(--accent); color: #000; }
-  .btn-ghost { background: rgba(255,255,255,0.08); color: var(--text); }
-  .btn-danger { background: rgba(255,80,80,0.15); color: #ff5050; }
-  .btn-export { background: var(--accent2); color: #fff; }
-
-  #map {
-    flex: 1;
-    min-height: 0;
-  }
-
-  /* Override Leaflet for dark theme */
-  .leaflet-container { background: #1a1a2e !important; }
-  .leaflet-popup-content-wrapper {
-    background: var(--surface2);
-    color: var(--text);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    box-shadow: 0 4px 20px rgba(0,0,0,0.5);
-  }
-  .leaflet-popup-tip { background: var(--surface2); }
-
-  .bottom-panel {
-    background: var(--surface);
-    border-top: 1px solid var(--border);
-    flex-shrink: 0;
-    max-height: 40vh;
-    display: flex;
-    flex-direction: column;
-  }
-
-  .panel-toolbar {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 10px 12px;
-    border-bottom: 1px solid var(--border);
-    flex-wrap: wrap;
-  }
-
-  .poi-count {
-    font-family: 'DM Mono', monospace;
-    font-size: 12px;
-    color: var(--text-dim);
-    margin-left: auto;
-  }
-
-  .file-label {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 8px 12px;
-    border-radius: var(--radius);
-    background: rgba(255,255,255,0.06);
-    color: var(--text);
-    font-size: 14px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: background 0.2s;
-    white-space: nowrap;
-  }
-
-  .file-label:hover { background: rgba(255,255,255,0.1); }
-  #fileInput { display: none; }
-
-  ul#list {
-    list-style: none;
-    padding: 8px 12px;
-    overflow-y: auto;
-    flex: 1;
-    -webkit-overflow-scrolling: touch;
-  }
-
-  li {
-    background: var(--surface2);
-    margin: 4px 0;
-    padding: 10px 12px;
-    border-radius: var(--radius);
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    border: 1px solid transparent;
-    transition: border-color 0.2s;
-  }
-
-  li.selected { border-color: var(--accent); }
-
-  li input[type="checkbox"] {
-    width: 18px;
-    height: 18px;
-    accent-color: var(--accent);
-    flex-shrink: 0;
-    cursor: pointer;
-  }
-
-  .poi-info { flex: 1; min-width: 0; }
-
-  .poi-name {
-    font-size: 13px;
-    font-weight: 600;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  .poi-coords {
-    font-family: 'DM Mono', monospace;
-    font-size: 11px;
-    color: var(--text-dim);
-    margin-top: 2px;
-  }
-
-  .btn-del {
-    background: none;
-    border: none;
-    color: var(--text-dim);
-    font-size: 16px;
-    cursor: pointer;
-    padding: 4px;
-    border-radius: 6px;
-    transition: color 0.2s, background 0.2s;
-    flex-shrink: 0;
-  }
-
-  .btn-del:hover { color: #ff5050; background: rgba(255,80,80,0.1); }
-
-  .empty-state {
-    text-align: center;
-    color: var(--text-dim);
-    font-size: 13px;
-    padding: 20px;
-  }
-
-  .toast {
-    position: fixed;
-    bottom: calc(var(--safe-bottom) + 20px);
-    left: 50%;
-    transform: translateX(-50%) translateY(80px);
-    background: var(--accent);
-    color: #000;
-    padding: 10px 18px;
-    border-radius: 20px;
-    font-size: 13px;
-    font-weight: 600;
-    z-index: 9999;
-    transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1);
-    pointer-events: none;
-    white-space: nowrap;
-  }
-
-  .toast.show { transform: translateX(-50%) translateY(0); }
-
-  @media (max-width: 500px) {
-    header { flex-wrap: wrap; }
-    .logo { width: 100%; text-align: center; }
-    .searchbar { max-width: 100%; }
-  }
+/* TOAST */
+.toast{
+  position:fixed;
+  bottom:calc(var(--safe-bot) + 16px);
+  left:50%;
+  transform:translateX(-50%) translateY(60px);
+  background:var(--surface2);
+  border:1px solid var(--border);
+  color:var(--text);
+  padding:9px 16px;
+  border-radius:20px;
+  font-size:12px;
+  font-weight:500;
+  z-index:10000;
+  transition:transform .3s cubic-bezier(.34,1.56,.64,1);
+  pointer-events:none;
+  white-space:nowrap;
+  box-shadow:0 4px 20px rgba(0,0,0,.5);
+}
+.toast.show{transform:translateX(-50%) translateY(0);}
 </style>
-
 </head>
-
 <body>
 
+<!-- HEADER -->
 <header>
-  <div class="logo">PAM <span>/ POI App Manager</span></div>
-  <div class="searchbar">
-    <input id="search" placeholder="Cerca indirizzo…" onkeydown="if(event.key==='Enter') doSearch()">
-    <button class="btn btn-primary" onclick="doSearch()">🔍</button>
-    <button class="btn btn-ghost" onclick="clearSearch()">✕</button>
+  <div class="logo">PAM</div>
+  <div class="search-wrap">
+    <input id="search" placeholder="Cerca indirizzo…" onkeydown="if(event.key==='Enter')doSearch()">
+    <button class="btn btn-blue" onclick="doSearch()">🔍</button>
+    <button class="btn btn-dim" onclick="clearSearch()" title="Cancella ricerca">✕</button>
   </div>
+  <button class="btn btn-amber" onclick="getGPS()">📍 GPS</button>
 </header>
 
+<!-- MAP -->
 <div id="map"></div>
 
-<div class="bottom-panel">
-  <div class="panel-toolbar">
-    <label class="file-label" for="fileInput">📂 Importa GPX</label>
-    <input type="file" id="fileInput" accept=".gpx">
-    <button class="btn btn-export" onclick="exportGPX()">⬇︎ Export GPX</button>
-    <button class="btn btn-danger" onclick="clearAll()">🗑 Svuota</button>
-    <span class="poi-count" id="countLabel">0 POI</span>
+<!-- BOTTOM PANEL -->
+<div class="bottom">
+
+  <div class="panel-tabs">
+    <div class="tab active" onclick="switchTab('poi')" id="tab-poi">
+      📍 Waypoint <span class="tab-count" id="cnt-poi">0</span>
+    </div>
+    <div class="tab" onclick="switchTab('trk')" id="tab-trk">
+      〰 Tracce <span class="tab-count" id="cnt-trk">0</span>
+    </div>
   </div>
-  <ul id="list"></ul>
+
+  <!-- TOOLBAR POI -->
+  <div class="toolbar" id="tb-poi">
+    <label class="btn btn-dim" for="fileInput">📂 Importa GPX</label>
+    <input type="file" id="fileInput" accept=".gpx" style="display:none">
+    <button class="btn btn-green" onclick="exportGPX()">⬇ Export GPX</button>
+    <button class="btn btn-red" onclick="clearAll()">🗑 Svuota</button>
+  </div>
+
+  <!-- TOOLBAR TRK -->
+  <div class="toolbar" id="tb-trk" style="display:none">
+    <label class="btn btn-dim" for="fileInput2">📂 Importa GPX traccia</label>
+    <input type="file" id="fileInput2" accept=".gpx" style="display:none">
+    <button class="btn btn-red" onclick="clearTracks()">🗑 Rimuovi tracce</button>
+  </div>
+
+  <div class="panel-body">
+
+    <!-- POI TABLE -->
+    <div class="panel-section active" id="sec-poi">
+      <table>
+        <thead>
+          <tr>
+            <th style="width:28px"></th>
+            <th>Indirizzo / Nome</th>
+            <th style="width:80px">Quota [m]</th>
+            <th style="width:90px">Distanza</th>
+            <th style="width:28px"></th>
+          </tr>
+        </thead>
+        <tbody id="poi-body"></tbody>
+      </table>
+    </div>
+
+    <!-- TRACKS TABLE -->
+    <div class="panel-section" id="sec-trk">
+      <table>
+        <thead>
+          <tr>
+            <th>Nome traccia</th>
+            <th style="width:90px">Lunghezza</th>
+            <th style="width:70px">Punti</th>
+            <th style="width:80px">Profilo</th>
+            <th style="width:28px"></th>
+          </tr>
+        </thead>
+        <tbody id="trk-body"></tbody>
+      </table>
+    </div>
+
+  </div>
+</div>
+
+<!-- ELEVATION MODAL -->
+<div id="elev-modal">
+  <div class="modal-box">
+    <div class="modal-header">
+      <div>
+        <div class="modal-title" id="modal-title">Profilo altimetrico</div>
+        <div class="modal-sub" id="modal-sub"></div>
+      </div>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <canvas id="elev-canvas"></canvas>
+      <div class="elev-stats" id="elev-stats"></div>
+    </div>
+  </div>
 </div>
 
 <div class="toast" id="toast"></div>
 
 <script>
-  // --- Map setup ---
-  const map = L.map('map', { zoomControl: true }).setView([45.07, 7.68], 10);
+// ─── State ───────────────────────────────────────────────────────────────────
+let waypoints = JSON.parse(localStorage.getItem('pam_wp') || '[]');
+let tracks    = [];
+let markers   = [];
+let trackLayers = [];
+let gpsPos    = null;
+let gpsMarker = null;
+let gpsWatchId= null;
+let activeTab = 'poi';
 
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    maxZoom: 19,
-    attribution: '© OpenStreetMap'
-  }).addTo(map);
+// ─── Map ─────────────────────────────────────────────────────────────────────
+const map = L.map('map', {zoomControl:true}).setView([45.07,7.68],10);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}).addTo(map);
 
-  let waypoints = [];
-  let markers = [];
+// ─── Icon factory ─────────────────────────────────────────────────────────────
+function makePin(color, size=14){
+  return L.divIcon({
+    className:'',
+    html:`<div style="width:${size}px;height:${size}px;border-radius:50%;background:${color};border:2px solid #fff;box-shadow:0 0 8px ${color}66;"></div>`,
+    iconSize:[size,size], iconAnchor:[size/2,size/2]
+  });
+}
+const PIN_NORMAL   = makePin('#58a6ff');
+const PIN_SELECTED = makePin('#f0b429',18);
+const PIN_GPS      = makePin('#3fb950',16);
 
-  // --- Custom marker ---
-  function makeIcon(selected) {
-    return L.divIcon({
-      className: '',
-      html: `<div style="width:14px;height:14px;border-radius:50%;background:${selected ? '#00d4ff' : '#7c3aed'};border:2px solid #fff;box-shadow:0 0 6px rgba(0,212,255,0.6)"></div>`,
-      iconSize: [14, 14],
-      iconAnchor: [7, 7]
-    });
-  }
+// ─── Save ─────────────────────────────────────────────────────────────────────
+function save(){ localStorage.setItem('pam_wp', JSON.stringify(waypoints)); }
 
-  // --- Render ---
-  function render() {
-    markers.forEach(m => map.removeLayer(m));
-    markers = [];
+// ─── Render POI markers & table ───────────────────────────────────────────────
+function render(){
+  markers.forEach(m=>map.removeLayer(m));
+  markers=[];
 
-    const list = document.getElementById('list');
-    list.innerHTML = '';
-
-    if (waypoints.length === 0) {
-      list.innerHTML = '<li class="empty-state">Nessun POI caricato. Cerca un indirizzo o importa un file GPX.</li>';
-      document.getElementById('countLabel').textContent = '0 POI';
-      return;
-    }
-
-    const sel = waypoints.filter(w => w.selected).length;
-    document.getElementById('countLabel').textContent = `${sel}/${waypoints.length} selezionati`;
-
-    waypoints.forEach((w, i) => {
-      const marker = L.marker([w.lat, w.lon], { icon: makeIcon(w.selected) })
-        .addTo(map)
-        .bindPopup(`<b>${w.name}</b><br><small>${w.lat.toFixed(5)}, ${w.lon.toFixed(5)}</small>`);
-
-      marker.on('click', () => {
-        w.selected = !w.selected;
-        render();
-      });
-
-      markers.push(marker);
-
-      const li = document.createElement('li');
-      if (w.selected) li.classList.add('selected');
-
-      const chk = document.createElement('input');
-      chk.type = 'checkbox';
-      chk.checked = w.selected;
-      chk.onchange = () => { w.selected = chk.checked; render(); };
-
-      const info = document.createElement('div');
-      info.className = 'poi-info';
-      info.innerHTML = `<div class="poi-name">${w.name}</div><div class="poi-coords">${w.lat.toFixed(5)}, ${w.lon.toFixed(5)}</div>`;
-
-      info.addEventListener('click', () => {
-        map.setView([w.lat, w.lon], 15);
-        markers[i].openPopup();
-      });
-
-      const del = document.createElement('button');
-      del.className = 'btn-del';
-      del.textContent = '✕';
-      del.onclick = () => { waypoints.splice(i, 1); render(); };
-
-      li.appendChild(chk);
-      li.appendChild(info);
-      li.appendChild(del);
-      list.appendChild(li);
-    });
-  }
-
-  // --- Search ---
-  function doSearch() {
-    const q = document.getElementById('search').value.trim();
-    if (!q) return;
-
-    fetch('https://nominatim.openstreetmap.org/search?format=json&q=' + encodeURIComponent(q), {
-      headers: { 'Accept-Language': 'it' }
-    })
-    .then(r => r.json())
-    .then(data => {
-      if (!data.length) { showToast('Nessun risultato trovato'); return; }
-      const r = data[0];
-      const wp = {
-        name: r.display_name,
-        lat: parseFloat(r.lat),
-        lon: parseFloat(r.lon),
-        selected: true
-      };
-      waypoints.push(wp);
-      map.setView([wp.lat, wp.lon], 13);
-      render();
-      showToast('POI aggiunto ✓');
-    })
-    .catch(() => showToast('Errore nella ricerca'));
-  }
-
-  function clearSearch() {
-    document.getElementById('search').value = '';
-    document.getElementById('search').focus();
-  }
-
-  function clearAll() {
-    if (waypoints.length === 0) return;
-    if (confirm(`Eliminare tutti i ${waypoints.length} POI?`)) {
-      waypoints = [];
-      render();
-    }
-  }
-
-  // --- Import GPX ---
-  document.getElementById('fileInput').addEventListener('change', function(e) {
-    const file = e.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = function() {
-      const xml = new DOMParser().parseFromString(reader.result, 'text/xml');
-      const pts = xml.getElementsByTagName('wpt');
-      let count = 0;
-      for (const p of pts) {
-        const lat = parseFloat(p.getAttribute('lat'));
-        const lon = parseFloat(p.getAttribute('lon'));
-        const nameNode = p.getElementsByTagName('name')[0];
-        waypoints.push({
-          name: nameNode ? nameNode.textContent : 'Waypoint',
-          lat, lon, selected: true
-        });
-        count++;
-      }
-      if (count > 0) {
-        const bounds = L.latLngBounds(waypoints.map(w => [w.lat, w.lon]));
-        map.fitBounds(bounds, { padding: [20, 20] });
-        render();
-        showToast(`${count} POI importati ✓`);
-      } else {
-        showToast('Nessun waypoint trovato nel file');
-      }
-    };
-    reader.readAsText(file);
-    this.value = '';
+  waypoints.forEach((w,i)=>{
+    const m = L.marker([w.lat,w.lon],{icon: w.sel ? PIN_SELECTED : PIN_NORMAL}).addTo(map);
+    m.bindPopup(`<b>${escXml(w.name)}</b><br><small>${w.lat.toFixed(5)}, ${w.lon.toFixed(5)}</small>`);
+    m.on('click',()=>{ w.sel=!w.sel; render(); });
+    markers.push(m);
   });
 
-  // --- Export GPX ---
-  function exportGPX() {
-    const selected = waypoints.filter(w => w.selected);
-    if (!selected.length) { showToast('Seleziona almeno un POI'); return; }
+  renderPoiTable();
+  updateCounts();
+  save();
+}
 
-    let xml = '<?xml version="1.0" encoding="UTF-8"?>\n';
-    xml += '<gpx version="1.1" creator="PAM-POI-Manager" xmlns="http://www.topografix.com/GPX/1/1">\n';
-    selected.forEach(w => {
-      xml += `  <wpt lat="${w.lat}" lon="${w.lon}"><name>${escapeXml(w.name)}</name></wpt>\n`;
-    });
-    xml += '</gpx>';
+function renderPoiTable(){
+  const tb = document.getElementById('poi-body');
+  const rows = [];
 
-    const blob = new Blob([xml], { type: 'application/gpx+xml' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = 'POI_export.gpx';
-    a.click();
-    showToast(`${selected.length} POI esportati ✓`);
+  // GPS row
+  if(gpsPos){
+    const sel = gpsPos.sel;
+    rows.push(`<tr class="gps-row ${sel?'sel':''}" onclick="toggleGpsSel()">
+      <td><input type="checkbox" ${sel?'checked':''} onclick="event.stopPropagation();toggleGpsSel()"></td>
+      <td class="name-cell"><span class="gps-badge"><span class="pulse"></span>GPS</span>Posizione attuale</td>
+      <td class="mono">${gpsPos.alt!=null ? Math.round(gpsPos.alt) : '—'}</td>
+      <td class="mono">—</td>
+      <td></td>
+    </tr>`);
   }
 
-  function escapeXml(s) {
-    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-  }
+  waypoints.forEach((w,i)=>{
+    const dist = gpsPos ? haversineDist(gpsPos.lat,gpsPos.lon,w.lat,w.lon) : null;
+    const distStr = dist==null ? '—' : dist>=1000 ? (dist/1000).toFixed(2)+' km' : Math.round(dist)+' m';
+    const altStr  = w.ele!=null ? Math.round(w.ele) : '—';
+    rows.push(`<tr class="${w.sel?'sel':''}" onclick="togglePoi(${i})">
+      <td><input type="checkbox" ${w.sel?'checked':''} onclick="event.stopPropagation();togglePoi(${i})"></td>
+      <td class="name-cell" title="${escAttr(w.name)}">${escXml(w.name)}</td>
+      <td class="mono">${altStr}</td>
+      <td class="mono">${distStr}</td>
+      <td><button class="del-btn" onclick="event.stopPropagation();delPoi(${i})">✕</button></td>
+    </tr>`);
+  });
 
-  // --- Toast ---
-  let toastTimer;
-  function showToast(msg) {
-    const t = document.getElementById('toast');
-    t.textContent = msg;
-    t.classList.add('show');
-    clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => t.classList.remove('show'), 2500);
-  }
+  tb.innerHTML = rows.length ? rows.join('') : '<tr><td colspan="5" class="empty">Nessun waypoint. Cerca un indirizzo o importa un GPX.</td></tr>';
+}
 
-  // --- Service Worker ---
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('sw.js').catch(console.error);
-  }
+function togglePoi(i){ waypoints[i].sel=!waypoints[i].sel; render(); }
+function delPoi(i){ waypoints.splice(i,1); render(); }
+function toggleGpsSel(){ if(gpsPos){ gpsPos.sel=!gpsPos.sel; renderPoiTable(); } }
 
+// ─── GPS ──────────────────────────────────────────────────────────────────────
+function getGPS(){
+  if(!navigator.geolocation){ showToast('GPS non disponibile'); return; }
+  navigator.geolocation.getCurrentPosition(p=>{
+    const {latitude:lat, longitude:lon, altitude:alt} = p.coords;
+    gpsPos = {lat, lon, alt, sel:false};
+    if(gpsMarker) map.removeLayer(gpsMarker);
+    gpsMarker = L.marker([lat,lon],{icon:PIN_GPS}).addTo(map)
+      .bindPopup('<b>📍 Posizione attuale</b>');
+    map.setView([lat,lon],14);
+    render();
+    showToast('Posizione acquisita ✓');
+  }, ()=>showToast('Impossibile acquisire GPS'));
+}
+
+// ─── Search ───────────────────────────────────────────────────────────────────
+function doSearch(){
+  const q = document.getElementById('search').value.trim();
+  if(!q) return;
+  fetch('https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&q='+encodeURIComponent(q),
+    {headers:{'Accept-Language':'it'}})
+  .then(r=>r.json())
+  .then(d=>{
+    if(!d.length){ showToast('Nessun risultato'); return; }
+    const r=d[0];
+    waypoints.push({name:r.display_name, lat:+r.lat, lon:+r.lon, ele:null, sel:true});
+    map.setView([r.lat,r.lon],14);
+    // try elevation
+    fetchEle(waypoints.length-1, +r.lat, +r.lon);
+    render();
+    showToast('POI aggiunto ✓');
+  })
+  .catch(()=>showToast('Errore nella ricerca'));
+}
+
+function clearSearch(){
+  document.getElementById('search').value='';
+  document.getElementById('search').focus();
+}
+
+// Try to get elevation for a waypoint via Open-Elevation
+function fetchEle(idx, lat, lon){
+  fetch(`https://api.open-elevation.com/api/v1/lookup?locations=${lat},${lon}`)
+  .then(r=>r.json())
+  .then(d=>{ if(d.results&&d.results[0]){ waypoints[idx].ele=d.results[0].elevation; renderPoiTable(); } })
+  .catch(()=>{});
+}
+
+// ─── IMPORT GPX ──────────────────────────────────────────────────────────────
+document.getElementById('fileInput').addEventListener('change',function(e){
+  const file=e.target.files[0]; if(!file) return;
+  const reader=new FileReader();
+  reader.onload=function(){
+    const xml=new DOMParser().parseFromString(reader.result,'text/xml');
+    let wptCount=0;
+    // Waypoints
+    for(const p of xml.getElementsByTagName('wpt')){
+      const lat=+p.getAttribute('lat'), lon=+p.getAttribute('lon');
+      const name=p.querySelector('name')?.textContent||'WP';
+      const ele = p.querySelector('ele') ? +p.querySelector('ele').textContent : null;
+      waypoints.push({name,lat,lon,ele,sel:true});
+      wptCount++;
+    }
+    // Tracks — parse but add to track list
+    for(const trk of xml.getElementsByTagName('trk')){
+      const name = trk.querySelector('name')?.textContent || file.name.replace('.gpx','');
+      importTrack(name, trk);
+    }
+    if(wptCount>0){
+      const bounds=L.latLngBounds(waypoints.map(w=>[w.lat,w.lon]));
+      map.fitBounds(bounds,{padding:[20,20]});
+    }
+    render();
+    showToast(`${wptCount} waypoint importati ✓`);
+  };
+  reader.readAsText(file);
+  this.value='';
+});
+
+// Track-only import
+document.getElementById('fileInput2').addEventListener('change',function(e){
+  const file=e.target.files[0]; if(!file) return;
+  const reader=new FileReader();
+  reader.onload=function(){
+    const xml=new DOMParser().parseFromString(reader.result,'text/xml');
+    let trkCount=0;
+    for(const trk of xml.getElementsByTagName('trk')){
+      const name = trk.querySelector('name')?.textContent || file.name.replace('.gpx','');
+      importTrack(name, trk);
+      trkCount++;
+    }
+    if(!trkCount) showToast('Nessuna traccia trovata nel file');
+    else showToast(`${trkCount} traccia/e importata/e ✓`);
+    render();
+  };
+  reader.readAsText(file);
+  this.value='';
+});
+
+function importTrack(name, trkElement){
+  const pts=[];
+  for(const pt of trkElement.getElementsByTagName('trkpt')){
+    const lat=+pt.getAttribute('lat'), lon=+pt.getAttribute('lon');
+    const ele=pt.querySelector('ele') ? +pt.querySelector('ele').textContent : null;
+    pts.push({lat,lon,ele});
+  }
+  if(!pts.length) return;
+  const len=calcTrackLen(pts);
+  const layer=L.polyline(pts.map(p=>[p.lat,p.lon]),{color:'#f0b429',weight:3,opacity:.85}).addTo(map);
+  map.fitBounds(layer.getBounds(),{padding:[20,20]});
+  tracks.push({name,pts,len,layer});
+  renderTrackTable();
+  updateCounts();
+}
+
+function calcTrackLen(pts){
+  let d=0;
+  for(let i=1;i<pts.length;i++) d+=haversineDist(pts[i-1].lat,pts[i-1].lon,pts[i].lat,pts[i].lon);
+  return d;
+}
+
+function renderTrackTable(){
+  const tb=document.getElementById('trk-body');
+  if(!tracks.length){
+    tb.innerHTML='<tr><td colspan="5" class="empty">Nessuna traccia. Importa un file GPX con tracce.</td></tr>';
+    return;
+  }
+  tb.innerHTML=tracks.map((t,i)=>{
+    const lenStr=t.len>=1000?(t.len/1000).toFixed(2)+' km':Math.round(t.len)+' m';
+    return `<tr>
+      <td class="name-cell" title="${escAttr(t.name)}">${escXml(t.name)}</td>
+      <td class="mono">${lenStr}</td>
+      <td class="mono">${t.pts.length}</td>
+      <td><button class="track-btn" onclick="openElev(${i})">📈 Profilo</button></td>
+      <td><button class="del-btn" onclick="delTrack(${i})">✕</button></td>
+    </tr>`;
+  }).join('');
+}
+
+function delTrack(i){
+  map.removeLayer(tracks[i].layer);
+  tracks.splice(i,1);
+  renderTrackTable();
+  updateCounts();
+}
+
+function clearTracks(){
+  if(!tracks.length) return;
+  if(!confirm(`Rimuovere tutte le ${tracks.length} tracce?`)) return;
+  tracks.forEach(t=>map.removeLayer(t.layer));
+  tracks=[];
+  renderTrackTable();
+  updateCounts();
+}
+
+// ─── EXPORT GPX ──────────────────────────────────────────────────────────────
+function exportGPX(){
+  const toExport=[];
+  if(gpsPos&&gpsPos.sel) toExport.push({name:'Posizione GPS',lat:gpsPos.lat,lon:gpsPos.lon,ele:gpsPos.alt});
+  waypoints.filter(w=>w.sel).forEach(w=>toExport.push(w));
+  if(!toExport.length){ showToast('Seleziona almeno un POI'); return; }
+  let xml='<?xml version="1.0" encoding="UTF-8"?>\n<gpx version="1.1" creator="PAM" xmlns="http://www.topografix.com/GPX/1/1">\n';
+  toExport.forEach(w=>{
+    const eleTag = w.ele!=null ? `<ele>${w.ele}</ele>` : '';
+    xml+=`  <wpt lat="${w.lat}" lon="${w.lon}">${eleTag}<name>${escXml(w.name)}</name></wpt>\n`;
+  });
+  xml+='</gpx>';
+  dlBlob(xml,'POI_export.gpx','application/gpx+xml');
+  showToast(`${toExport.length} POI esportati ✓`);
+}
+
+function clearAll(){
+  if(!waypoints.length&&!gpsPos) return;
+  if(!confirm('Rimuovere tutti i waypoint?')) return;
+  waypoints=[]; gpsPos=null;
+  if(gpsMarker){ map.removeLayer(gpsMarker); gpsMarker=null; }
   render();
-</script>
+}
 
+// ─── ELEVATION PROFILE ────────────────────────────────────────────────────────
+function openElev(i){
+  const t=tracks[i];
+  document.getElementById('modal-title').textContent=t.name;
+  const lenStr=t.len>=1000?(t.len/1000).toFixed(2)+' km':Math.round(t.len)+' m';
+  document.getElementById('modal-sub').textContent=`${lenStr} · ${t.pts.length} punti`;
+
+  const pts=t.pts.filter(p=>p.ele!=null);
+  if(!pts.length){ showToast('Nessun dato altimetrico disponibile'); return; }
+
+  document.getElementById('elev-modal').classList.add('open');
+
+  // draw after modal is visible
+  requestAnimationFrame(()=>drawElevProfile(pts, t.len));
+}
+
+function closeModal(){ document.getElementById('elev-modal').classList.remove('open'); }
+
+function drawElevProfile(pts, totalLen){
+  const canvas=document.getElementById('elev-canvas');
+  const DPR=window.devicePixelRatio||1;
+  const W=canvas.offsetWidth, H=canvas.offsetHeight;
+  canvas.width=W*DPR; canvas.height=H*DPR;
+  const ctx=canvas.getContext('2d');
+  ctx.scale(DPR,DPR);
+
+  const eles=pts.map(p=>p.ele);
+  const minE=Math.min(...eles), maxE=Math.max(...eles);
+  const pad={t:16,b:28,l:44,r:12};
+  const gW=W-pad.l-pad.r, gH=H-pad.t-pad.b;
+
+  // Background
+  ctx.fillStyle='#161b22';
+  ctx.fillRect(0,0,W,H);
+
+  // Grid
+  ctx.strokeStyle='rgba(48,54,61,0.6)';
+  ctx.lineWidth=1;
+  const steps=4;
+  for(let s=0;s<=steps;s++){
+    const y=pad.t+gH*(1-s/steps);
+    ctx.beginPath(); ctx.moveTo(pad.l,y); ctx.lineTo(pad.l+gW,y); ctx.stroke();
+    const val=Math.round(minE+(maxE-minE)*(s/steps));
+    ctx.fillStyle='#8b949e';
+    ctx.font=`${9*DPR/DPR}px IBM Plex Mono,monospace`;
+    ctx.textAlign='right';
+    ctx.fillText(val+'m', pad.l-4, y+3.5);
+  }
+
+  // Cumulative distances for x axis
+  let cumDist=[0];
+  for(let i=1;i<pts.length;i++) cumDist.push(cumDist[i-1]+haversineDist(pts[i-1].lat,pts[i-1].lon,pts[i].lat,pts[i].lon));
+  const totD=cumDist[cumDist.length-1];
+
+  const toX=d=>pad.l+gW*(d/totD);
+  const toY=e=>pad.t+gH*(1-(e-minE)/(maxE-minE||1));
+
+  // Gradient fill
+  const grad=ctx.createLinearGradient(0,pad.t,0,pad.t+gH);
+  grad.addColorStop(0,'rgba(88,166,255,0.35)');
+  grad.addColorStop(1,'rgba(88,166,255,0.02)');
+  ctx.beginPath();
+  ctx.moveTo(toX(0),toY(pts[0].ele));
+  pts.forEach((p,i)=>ctx.lineTo(toX(cumDist[i]),toY(p.ele)));
+  ctx.lineTo(toX(totD),pad.t+gH);
+  ctx.lineTo(toX(0),pad.t+gH);
+  ctx.closePath();
+  ctx.fillStyle=grad;
+  ctx.fill();
+
+  // Line
+  ctx.beginPath();
+  ctx.moveTo(toX(0),toY(pts[0].ele));
+  pts.forEach((p,i)=>ctx.lineTo(toX(cumDist[i]),toY(p.ele)));
+  ctx.strokeStyle='#58a6ff';
+  ctx.lineWidth=2;
+  ctx.lineJoin='round';
+  ctx.stroke();
+
+  // X axis labels
+  ctx.fillStyle='#8b949e';
+  ctx.textAlign='center';
+  ctx.font=`9px IBM Plex Mono,monospace`;
+  [0,.25,.5,.75,1].forEach(f=>{
+    const x=pad.l+gW*f;
+    const d=totD*f;
+    const label=d>=1000?(d/1000).toFixed(1)+'km':Math.round(d)+'m';
+    ctx.fillText(label,x,H-pad.b+14);
+  });
+
+  // Stats
+  const gain=pts.reduce((acc,p,i)=>i>0&&p.ele>pts[i-1].ele?acc+(p.ele-pts[i-1].ele):acc,0);
+  const loss=pts.reduce((acc,p,i)=>i>0&&p.ele<pts[i-1].ele?acc+(pts[i-1].ele-p.ele):acc,0);
+  document.getElementById('elev-stats').innerHTML=`
+    <div class="stat-box"><div class="stat-label">Min</div><div class="stat-val">${Math.round(minE)} m</div></div>
+    <div class="stat-box"><div class="stat-label">Max</div><div class="stat-val">${Math.round(maxE)} m</div></div>
+    <div class="stat-box"><div class="stat-label">↑ Salita</div><div class="stat-val">+${Math.round(gain)} m</div></div>
+    <div class="stat-box"><div class="stat-label">↓ Discesa</div><div class="stat-val">-${Math.round(loss)} m</div></div>
+  `;
+}
+
+// ─── Tabs ─────────────────────────────────────────────────────────────────────
+function switchTab(tab){
+  activeTab=tab;
+  document.getElementById('tab-poi').classList.toggle('active',tab==='poi');
+  document.getElementById('tab-trk').classList.toggle('active',tab==='trk');
+  document.getElementById('sec-poi').classList.toggle('active',tab==='poi');
+  document.getElementById('sec-trk').classList.toggle('active',tab==='trk');
+  document.getElementById('tb-poi').style.display=tab==='poi'?'':'none';
+  document.getElementById('tb-trk').style.display=tab==='trk'?'':'none';
+}
+
+function updateCounts(){
+  document.getElementById('cnt-poi').textContent=waypoints.length+(gpsPos?1:0);
+  document.getElementById('cnt-trk').textContent=tracks.length;
+}
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+function haversineDist(lat1,lon1,lat2,lon2){
+  const R=6371000, r=Math.PI/180;
+  const dLat=(lat2-lat1)*r, dLon=(lon2-lon1)*r;
+  const a=Math.sin(dLat/2)**2+Math.cos(lat1*r)*Math.cos(lat2*r)*Math.sin(dLon/2)**2;
+  return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+}
+
+function escXml(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function escAttr(s){ return escXml(s).replace(/"/g,'&quot;'); }
+
+function dlBlob(content,name,type){
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([content],{type}));
+  a.download=name; a.click();
+}
+
+let toastTimer;
+function showToast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>t.classList.remove('show'),2500);
+}
+
+// ─── Init ─────────────────────────────────────────────────────────────────────
+if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{});
+render();
+</script>
 </body>
 </html>
