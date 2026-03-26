@@ -503,12 +503,16 @@ let routeViaMarkers  = [];  // red markers on rmap for WPs shown as context
 // ═══════════════════════════════════════════════════════════════════════════════
 // MAPS
 // ═══════════════════════════════════════════════════════════════════════════════
+const map    = L.map('map',       {zoomControl:true}).setView([45.07,7.68],10);
+const trkMap = L.map('trk-map',   {zoomControl:true}).setView([45.07,7.68],10);
+const rmap   = L.map('route-map', {zoomControl:true}).setView([45.07,7.68],10);
+
 // ── Tile layer helpers ─────────────────────────────────────────────────────────
 function buildTile(type){ return L.tileLayer(TILES[type].url,{maxZoom:19,attribution:TILES[type].attr}); }
 
-tileLayers.map     = buildTile('road'); tileLayers.map.addTo(map);
-tileLayers.trkMap  = buildTile('road'); tileLayers.trkMap.addTo(trkMap);
-tileLayers.rmap    = buildTile('road'); tileLayers.rmap.addTo(rmap);
+tileLayers.map    = buildTile('road'); tileLayers.map.addTo(map);
+tileLayers.trkMap = buildTile('road'); tileLayers.trkMap.addTo(trkMap);
+tileLayers.rmap   = buildTile('road'); tileLayers.rmap.addTo(rmap);
 
 function setTileType(type){
   currentTileType=type;
