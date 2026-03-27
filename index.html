@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+
 <html lang="it">
 <head>
 <meta charset="utf-8">
@@ -158,6 +159,7 @@ td.name-cell{max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:
   font-size:12px;font-weight:600;cursor:pointer;transition:all .15s;}
 .mode-btn.active.walk{border-color:var(--accent2);background:rgba(63,185,80,.15);color:var(--accent2);}
 .mode-btn.active.drive{border-color:var(--warn);background:rgba(248,81,73,.12);color:var(--warn);}
+.mode-btn.active.line-mode{border-color:var(--accent);background:rgba(88,166,255,.15);color:var(--accent);}
 
 .route-wp-panel{background:var(--surface);border-top:1px solid var(--border);
   flex-shrink:0;max-height:32dvh;display:flex;flex-direction:column;}
@@ -222,10 +224,12 @@ canvas#elev-canvas{width:100%;height:200px;display:block;border-radius:var(--r);
   box-shadow:0 4px 20px rgba(0,0,0,.5);}
 .toast.show{transform:translateX(-50%) translateY(0);}
 </style>
+
 </head>
 <body>
 
 <!-- ══ NAV ══ -->
+
 <nav>
   <button class="nav-btn active" id="nb-poi" onclick="showScreen('poi')">
     <span class="ni">📍</span>Waypoint
@@ -239,6 +243,7 @@ canvas#elev-canvas{width:100%;height:200px;display:block;border-radius:var(--r);
 </nav>
 
 <!-- ══════════════════════ SCREEN: WAYPOINT ══════════════════════ -->
+
 <div class="screen active" id="scr-poi">
 
   <div class="topbar">
@@ -300,6 +305,7 @@ canvas#elev-canvas{width:100%;height:200px;display:block;border-radius:var(--r);
 </div>
 
 <!-- ══════════════════════ SCREEN: TRACCE ══════════════════════ -->
+
 <div class="screen" id="scr-trk">
 
   <div class="topbar">
@@ -315,123 +321,89 @@ canvas#elev-canvas{width:100%;height:200px;display:block;border-radius:var(--r);
       <div id="trk-map"></div>
     </div>
 
-    <div class="trk-table-panel">
-      <div class="toolbar">
-        <label class="btn btn-dim btn-sm" for="trk-file-input">📂 Importa traccia GPX</label>
-        <input type="file" id="trk-file-input" accept=".gpx" style="display:none">
-        <button class="btn btn-red btn-sm" onclick="clearTracks()">🗑 Rimuovi tutte</button>
-      </div>
-      <div class="panel-body">
-        <table>
-          <thead><tr>
-            <th>Nome traccia</th>
-            <th style="width:88px">Lunghezza</th>
-            <th style="width:54px">Punti</th>
-            <th style="width:72px">Profilo</th>
-            <th style="width:20px"></th>
-          </tr></thead>
-          <tbody id="trk-body"></tbody>
-        </table>
-      </div>
-    </div>
+```
+<div class="trk-table-panel">
+  <div class="toolbar">
+    <label class="btn btn-dim btn-sm" for="trk-file-input">📂 Importa traccia GPX</label>
+    <input type="file" id="trk-file-input" accept=".gpx" style="display:none">
+    <button class="btn btn-red btn-sm" onclick="clearTracks()">🗑 Rimuovi tutte</button>
+  </div>
+  <div class="panel-body">
+    <table>
+      <thead><tr>
+        <th>Nome traccia</th>
+        <th style="width:88px">Lunghezza</th>
+        <th style="width:54px">Punti</th>
+        <th style="width:72px">Profilo</th>
+        <th style="width:20px"></th>
+      </tr></thead>
+      <tbody id="trk-body"></tbody>
+    </table>
+  </div>
+</div>
+```
+
   </div>
 </div>
 
 <!-- ══════════════════════ SCREEN: CREA TRACCIA ══════════════════════ -->
-<div class="screen" id="scr-route">
 
+<div class="screen" id="scr-route">
   <div class="route-layout">
 
-    <div class="route-config">
+```
+<!-- toolbar -->
+<div class="route-config">
+  <div class="route-row" style="flex-wrap:wrap;gap:6px;">
 
-      <!-- PARTENZA picker -->
-      <div class="route-row">
-        <div class="picker-row">
-          <span class="picker-label" style="color:var(--accent2)">⬤ Partenza</span>
-          <select class="picker-select" id="start-mode" onchange="onPickerModeChange('start')">
-            <option value="search">🔍 Cerca</option>
-            <option value="gps">📍 GPS attuale</option>
-            <option value="wp">📌 Da waypoint</option>
-            <option value="map">🖱 Clicca mappa</option>
-          </select>
-          <div class="picker-input-wrap">
-            <input class="picker-input" id="start-input" placeholder="Indirizzo partenza…" autocomplete="off"
-              oninput="liveSearch('start-input','start-sdrop',null)"
-              onkeydown="if(event.key==='Enter'){resolvePickerSearch('start');closeDrop('start-sdrop')}">
-            <div class="sdrop" id="start-sdrop"></div>
-          </div>
-          <select class="picker-select" id="start-wp-sel" style="display:none;max-width:160px;" onchange="applyWpPicker('start')">
-            <option value="">-- scegli --</option>
-          </select>
-        </div>
-      </div>
+    <!-- start point search -->
+    <div style="position:relative;flex:1;min-width:160px;">
+      <input class="picker-input" id="draw-search" placeholder="🔍 Cerca punto di partenza…"
+        autocomplete="off"
+        oninput="liveSearch('draw-search','draw-sdrop',null)"
+        onkeydown="if(event.key==='Enter'){drawSearchGo();closeDrop('draw-sdrop')}">
+      <div class="sdrop" id="draw-sdrop"></div>
+    </div>
+    <button class="btn btn-dim btn-sm" onclick="drawUseGPS()" title="Usa GPS come punto di partenza">📍 GPS</button>
 
-      <!-- ARRIVO picker -->
-      <div class="route-row">
-        <div class="picker-row">
-          <span class="picker-label" style="color:var(--warn)">◼ Arrivo</span>
-          <select class="picker-select" id="end-mode" onchange="onPickerModeChange('end')">
-            <option value="search">🔍 Cerca</option>
-            <option value="gps">📍 GPS attuale</option>
-            <option value="wp">📌 Da waypoint</option>
-            <option value="map">🖱 Clicca mappa</option>
-          </select>
-          <div class="picker-input-wrap">
-            <input class="picker-input" id="end-input" placeholder="Indirizzo arrivo…" autocomplete="off"
-              oninput="liveSearch('end-input','end-sdrop',null)"
-              onkeydown="if(event.key==='Enter'){resolvePickerSearch('end');closeDrop('end-sdrop')}">
-            <div class="sdrop" id="end-sdrop"></div>
-          </div>
-          <select class="picker-select" id="end-wp-sel" style="display:none;max-width:160px;" onchange="applyWpPicker('end')">
-            <option value="">-- scegli --</option>
-          </select>
-        </div>
-      </div>
-
-      <!-- mode + actions -->
-      <div class="route-row">
-        <div class="mode-toggle">
-          <button class="mode-btn walk active" id="mode-walk" onclick="setMode('walk')">🏃 Pedone</button>
-          <button class="mode-btn drive" id="mode-drive" onclick="setMode('drive')">🚗 Auto</button>
-        </div>
-        <div class="tile-toggle">
-          <button class="tile-btn active" data-tile="road" onclick="setTileType('road')" title="Mappa stradale">🚗</button>
-          <button class="tile-btn" data-tile="topo" onclick="setTileType('topo')" title="Mappa escursionistica">🥾</button>
-        </div>
-        <button class="btn btn-blue btn-sm" onclick="calcRoute()">⚡ Calcola</button>
-        <button class="btn btn-green btn-sm" onclick="exportRouteGPX()">⬇ Esporta traccia</button>
-      </div>
-
+    <!-- segment mode -->
+    <div class="mode-toggle">
+      <button class="mode-btn walk active" id="seg-walk" onclick="setSegMode('foot')" title="Sentiero/pedone">🏃 Sentiero</button>
+      <button class="mode-btn drive" id="seg-drive" onclick="setSegMode('driving')" title="Strada/auto">🚗 Strada</button>
+      <button class="mode-btn" id="seg-line" onclick="setSegMode('line')" title="Linea retta">📏 Linea</button>
     </div>
 
-    <!-- route map -->
-    <div class="route-map-wrap">
-      <div id="route-map"></div>
-      <div class="map-hint" id="route-map-hint"></div>
-      <div style="position:absolute;bottom:8px;left:8px;z-index:500;background:rgba(22,27,34,.85);
-        border:1px solid rgba(48,54,61,.8);border-radius:6px;padding:4px 8px;font-size:10px;
-        color:#8b949e;pointer-events:none;font-family:'IBM Plex Mono',monospace;">
-        🔴 WP da waypoint · clic su marker = aggiungi tappa
-      </div>
-    </div>
+    <!-- actions -->
+    <button class="btn btn-dim btn-sm" onclick="drawUndo()" title="Annulla ultimo punto">↩ Undo</button>
+    <button class="btn btn-red btn-sm" onclick="drawClear()" title="Ricomincia da capo">🗑 Reset</button>
+    <button class="btn btn-green btn-sm" onclick="drawExport()">⬇ Esporta GPX</button>
+  </div>
 
-    <div class="route-status" id="rt-status"></div>
+  <!-- status bar -->
+  <div id="draw-status" style="font-family:'IBM Plex Mono',monospace;font-size:11px;
+    color:var(--text-dim);padding:2px 0;min-height:16px;"></div>
+</div>
 
-    <!-- intermediate WP panel -->
-    <div class="route-wp-panel">
-      <div class="route-wp-toolbar">
-        <span>Tappe intermedie — trascina per riordinare</span>
-        <button class="btn btn-dim btn-sm" onclick="addAllWpToRoute()">+ Tutti WP</button>
-        <button class="btn btn-sm" id="btn-via-pick" onclick="toggleRouteViaPick()" title="Clicca mappa per aggiungere tappa">🖱 + Tappa</button>
-        <button class="btn btn-red btn-sm" onclick="clearRouteWp()">🗑</button>
-      </div>
-      <div class="wp-order-list" id="wp-order-list"></div>
-    </div>
+<!-- map fills remaining space -->
+<div class="route-map-wrap" style="cursor:crosshair;">
+  <div id="route-map"></div>
+  <div class="map-hint" id="route-map-hint" style="display:none;"></div>
+  <!-- legend -->
+  <div style="position:absolute;bottom:8px;left:8px;z-index:500;
+    background:rgba(13,17,23,.88);border:1px solid rgba(48,54,61,.8);border-radius:6px;
+    padding:5px 9px;font-size:10px;color:#8b949e;pointer-events:none;
+    font-family:'IBM Plex Mono',monospace;line-height:1.6;">
+    🟢 Partenza &nbsp;·&nbsp; 🔴 Punti traccia<br>
+    Clicca mappa per aggiungere punti
+  </div>
+</div>
+```
 
   </div>
 </div>
 
 <!-- ELEVATION MODAL -->
+
 <div id="elev-modal">
   <div class="modal-box">
     <div class="modal-header">
@@ -550,38 +522,7 @@ map.on('click', e => {
   });
 });
 
-// ── Route map click: start/end picker OR via-point add ────────────────────────
-rmap.on('click', e => {
-  const {lat, lng} = e.latlng;
-
-  if (routeMapPicking) {
-    const which = routeMapPicking;
-    stopRouteMapPick();
-    fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`,
-      {headers:{'Accept-Language':'it'}})
-    .then(r=>r.json())
-    .then(d=>{ setRouteEndpoint(which,{name:d.display_name||`${lat.toFixed(5)},${lng.toFixed(5)}`,lat,lon:lng}); })
-    .catch(()=>setRouteEndpoint(which,{name:`${lat.toFixed(5)}, ${lng.toFixed(5)}`,lat,lon:lng}));
-    return;
-  }
-
-  if (routeViaPickMode) {
-    fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`,
-      {headers:{'Accept-Language':'it'}})
-    .then(r=>r.json())
-    .then(d=>{
-      const name=d.display_name||`${lat.toFixed(5)}, ${lng.toFixed(5)}`;
-      routeWpList.push({name,lat,lon:lng});
-      renderWpOrderList();
-      renderRouteWpMarkers();
-      showToast('Tappa aggiunta ✓');
-    })
-    .catch(()=>{
-      routeWpList.push({name:`${lat.toFixed(5)}, ${lng.toFixed(5)}`,lat,lon:lng});
-      renderWpOrderList(); renderRouteWpMarkers();
-    });
-  }
-});
+// rmap click is handled inside the Draw Track section below
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // ICONS
@@ -606,58 +547,7 @@ function save(){ localStorage.setItem('pam_wp', JSON.stringify(waypoints)); }
 // ═══════════════════════════════════════════════════════════════════════════════
 // SCREEN SWITCH
 // ═══════════════════════════════════════════════════════════════════════════════
-function showScreen(s){
-  ['poi','trk','route'].forEach(id=>{
-    document.getElementById('scr-'+id).classList.toggle('active',id===s);
-    document.getElementById('nb-'+id).classList.toggle('active',id===s);
-  });
-  if(s==='poi') setTimeout(()=>map.invalidateSize(),60);
-  if(s==='trk') setTimeout(()=>trkMap.invalidateSize(),60);
-  if(s==='route'){
-    setTimeout(()=>{rmap.invalidateSize(); renderRouteWpMarkers();},60);
-    refreshPickerWpSelects();
-  }
-}
-
-// Show waypoints as red context markers on the route map
-function renderRouteWpMarkers(){
-  routeViaMarkers.forEach(m=>rmap.removeLayer(m));
-  routeViaMarkers=[];
-  waypoints.forEach((w,i)=>{
-    const inList=routeWpList.find(x=>x.lat===w.lat&&x.lon===w.lon);
-    const m=L.marker([w.lat,w.lon],{icon: inList ? PIN_SEL : PIN_N})
-      .addTo(rmap)
-      .bindPopup(`<b>${escH(w.name)}</b><br><small>Clicca ➕ per aggiungere come tappa</small>`);
-    // click on WP marker in route map = add as via
-    m.on('click', e=>{
-      if(routeMapPicking) return;
-      if(!routeWpList.find(x=>x.lat===w.lat&&x.lon===w.lon)){
-        routeWpList.push({name:w.name,lat:w.lat,lon:w.lon});
-        renderWpOrderList();
-        renderRouteWpMarkers();
-        showToast('Tappa aggiunta ✓');
-      } else {
-        showToast('Già presente nella lista tappe');
-      }
-    });
-    routeViaMarkers.push(m);
-  });
-}
-
-function toggleRouteViaPick(){
-  routeViaPickMode=!routeViaPickMode;
-  const btn=document.getElementById('btn-via-pick');
-  btn.classList.toggle('btn-active-map', routeViaPickMode);
-  const hint=document.getElementById('route-map-hint');
-  if(routeViaPickMode){
-    hint.textContent='Clicca sulla mappa per aggiungere una tappa intermedia';
-    hint.classList.add('show');
-    rmap.getContainer().style.cursor='crosshair';
-  } else {
-    hint.classList.remove('show');
-    rmap.getContainer().style.cursor='';
-  }
-}
+// (showScreen, renderRouteWpMarkers, toggleRouteViaPick defined in Draw Track section)
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // RENDER WAYPOINTS
@@ -933,256 +823,294 @@ function clearAll(){
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// ROUTE SCREEN — PICKER
+// DRAW TRACK (schermata Crea Traccia — stile gpx.studio)
 // ═══════════════════════════════════════════════════════════════════════════════
-function onPickerModeChange(which){
-  const mode=document.getElementById(which+'-mode').value;
-  const inp=document.getElementById(which+'-input');
-  const wpSel=document.getElementById(which+'-wp-sel');
-  const drop=document.getElementById(which+'-sdrop');
 
-  // reset map picking
-  if(routeMapPicking===which) stopRouteMapPick();
+// draw state
+let drawNodes    = [];   // anchor points clicked by user: [{lat,lon,ele}]
+let drawSegments = [];   // resolved polyline segments: [[{lat,lon,ele}], ...]
+let drawSegMode  = 'foot'; // 'foot' | 'driving' | 'line'
+let drawPolylines= [];   // Leaflet polyline layers for each segment
+let drawMarkers  = [];   // Leaflet markers for each anchor
+let drawPending  = false;// true while fetching a segment
 
-  inp.style.display='none';
-  wpSel.style.display='none';
-  closeDrop(which+'-sdrop');
+// icons
+const PIN_DRAW_START = makePin('#3fb950', 18);
+const PIN_DRAW_NODE  = makePin('#e03030', 13);
 
-  if(mode==='search'){
-    inp.style.display='';
-    inp.className='picker-input';
-    inp.placeholder=which==='start'?'Indirizzo partenza…':'Indirizzo arrivo…';
-    inp.value='';
-  } else if(mode==='gps'){
-    if(!gpsPos){showToast('Prima acquisisci il GPS (schermata Waypoint)');document.getElementById(which+'-mode').value='search';onPickerModeChange(which);return;}
-    setRouteEndpoint(which,{name:'📍 Posizione GPS',lat:gpsPos.lat,lon:gpsPos.lon});
-    inp.style.display='';
-    inp.className='picker-input locked';
-    inp.value='📍 Posizione GPS attuale';
-    inp.readOnly=true;
-  } else if(mode==='wp'){
-    refreshPickerWpSelects();
-    wpSel.style.display='';
-  } else if(mode==='map'){
-    inp.style.display='';
-    inp.className='picker-input locked';
-    inp.value='⌛ Clicca sulla mappa qui sotto…';
-    inp.readOnly=true;
-    startRouteMapPick(which);
-  }
-}
-
-function refreshPickerWpSelects(){
-  ['start','end'].forEach(which=>{
-    const sel=document.getElementById(which+'-wp-sel');
-    sel.innerHTML='<option value="">-- scegli waypoint --</option>';
-    if(gpsPos) sel.innerHTML+=`<option value="__gps__">📍 Posizione GPS</option>`;
-    waypoints.forEach((w,i)=>{
-      const s=w.name.length>44?w.name.slice(0,44)+'…':w.name;
-      sel.innerHTML+=`<option value="${i}">📌 ${escH(s)}</option>`;
-    });
+// switch to topo tile on entering route screen
+function showScreen(s){
+  ['poi','trk','route'].forEach(id=>{
+    document.getElementById('scr-'+id).classList.toggle('active',id===s);
+    document.getElementById('nb-'+id).classList.toggle('active',id===s);
   });
-}
-
-function applyWpPicker(which){
-  const v=document.getElementById(which+'-wp-sel').value;
-  if(!v) return;
-  if(v==='__gps__'){
-    if(!gpsPos){showToast('GPS non disponibile');return;}
-    setRouteEndpoint(which,{name:'📍 GPS',lat:gpsPos.lat,lon:gpsPos.lon});
-  } else {
-    const w=waypoints[parseInt(v)];
-    if(!w) return;
-    setRouteEndpoint(which,{name:w.name,lat:w.lat,lon:w.lon});
-  }
-  const inp=document.getElementById(which+'-input');
-  inp.style.display='';
-  inp.className='picker-input locked';
-  inp.value=(which==='start'?routeStart:routeEnd)?.name||'';
-  inp.readOnly=true;
-  document.getElementById(which+'-wp-sel').style.display='none';
-  showToast((which==='start'?'Partenza':'Arrivo')+' impostato ✓');
-}
-
-function setRouteEndpoint(which, pt){
-  if(which==='start') routeStart=pt;
-  else routeEnd=pt;
-  // place/update marker on rmap
-  if(routePickMarkers[which]) rmap.removeLayer(routePickMarkers[which]);
-  const icon=which==='start'?PIN_START:PIN_END;
-  routePickMarkers[which]=L.marker([pt.lat,pt.lon],{icon}).addTo(rmap)
-    .bindPopup(`<b>${escH(pt.name)}</b>`);
-  rmap.setView([pt.lat,pt.lon],13);
-}
-
-function startRouteMapPick(which){
-  routeMapPicking=which;
-  const hint=document.getElementById('route-map-hint');
-  hint.textContent=`Clicca sulla mappa per impostare ${which==='start'?'la PARTENZA':'l\'ARRIVO'}`;
-  hint.classList.add('show');
-  rmap.getContainer().style.cursor='crosshair';
-}
-
-function stopRouteMapPick(){
-  routeMapPicking=null;
-  if(!routeViaPickMode){
-    const hint=document.getElementById('route-map-hint');
-    hint.classList.remove('show');
-    rmap.getContainer().style.cursor='';
+  if(s==='poi') setTimeout(()=>map.invalidateSize(),60);
+  if(s==='trk') setTimeout(()=>trkMap.invalidateSize(),60);
+  if(s==='route'){
+    setTimeout(()=>{ rmap.invalidateSize(); },60);
+    // always topo for track drawing
+    if(currentTileType!=='topo') setTileType('topo');
   }
 }
 
-function resolvePickerSearch(which){
-  const q=document.getElementById(which+'-input').value.trim();
+// segment mode buttons
+function setSegMode(mode){
+  drawSegMode=mode;
+  document.getElementById('seg-walk').classList.toggle('active', mode==='foot');
+  document.getElementById('seg-walk').className='mode-btn walk'+(mode==='foot'?' active':'');
+  document.getElementById('seg-drive').classList.toggle('active', mode==='driving');
+  document.getElementById('seg-drive').className='mode-btn drive'+(mode==='driving'?' active':'');
+  document.getElementById('seg-line').classList.toggle('active', mode==='line');
+  document.getElementById('seg-line').className='mode-btn'+(mode==='line'?' active line-mode':'');
+}
+
+// search bar: set start point
+document.getElementById('draw-search').addEventListener('input', function(){
+  liveSearch('draw-search','draw-sdrop',(name,lat,lon)=>{
+    closeDrop('draw-sdrop');
+    document.getElementById('draw-search').value=name;
+    drawAddStart(lat,lon);
+  });
+});
+
+function drawSearchGo(){
+  const q=document.getElementById('draw-search').value.trim();
   if(!q) return;
   fetch('https://nominatim.openstreetmap.org/search?format=json&limit=1&q='+encodeURIComponent(q),
     {headers:{'Accept-Language':'it'}})
   .then(r=>r.json())
   .then(d=>{
     if(!d.length){showToast('Nessun risultato');return;}
-    setRouteEndpoint(which,{name:d[0].display_name,lat:+d[0].lat,lon:+d[0].lon});
-    document.getElementById(which+'-input').value=d[0].display_name;
-    showToast((which==='start'?'Partenza':'Arrivo')+' impostato ✓');
-  });
+    drawAddStart(+d[0].lat,+d[0].lon);
+    document.getElementById('draw-search').value=d[0].display_name;
+  }).catch(()=>showToast('Errore ricerca'));
 }
 
-// wire live search on route inputs
-['start','end'].forEach(which=>{
-  const inp=document.getElementById(which+'-input');
-  inp.addEventListener('input',function(){
-    if(this.readOnly) return;
-    liveSearch(which+'-input',which+'-sdrop',(name,lat,lon)=>{
-      setRouteEndpoint(which,{name,lat,lon});
-      document.getElementById(which+'-input').value=name;
-      closeDrop(which+'-sdrop');
-      showToast((which==='start'?'Partenza':'Arrivo')+' impostato ✓');
-    });
-  });
-});
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// ROUTE MODE
-// ═══════════════════════════════════════════════════════════════════════════════
-function setMode(m){
-  routeMode=m;
-  document.getElementById('mode-walk').classList.toggle('active',m==='walk');
-  document.getElementById('mode-drive').classList.toggle('active',m==='drive');
-  // suggest matching tile
-  setTileType(m==='walk'?'topo':'road');
+function drawUseGPS(){
+  if(!gpsPos){showToast('Prima acquisisci il GPS nella schermata Waypoint');return;}
+  drawAddStart(gpsPos.lat,gpsPos.lon);
+  showToast('GPS impostato come partenza ✓');
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// ROUTE WP LIST
-// ═══════════════════════════════════════════════════════════════════════════════
-function addAllWpToRoute(){
-  waypoints.forEach(w=>{
-    if(!routeWpList.find(x=>x.lat===w.lat&&x.lon===w.lon))
-      routeWpList.push({name:w.name,lat:w.lat,lon:w.lon});
-  });
-  renderWpOrderList();
-  renderRouteWpMarkers();
-  showToast(`${waypoints.length} WP aggiunti ✓`);
-}
-function clearRouteWp(){routeWpList=[];renderWpOrderList();renderRouteWpMarkers();}
-function removeRouteWp(i){routeWpList.splice(i,1);renderWpOrderList();renderRouteWpMarkers();}
-function moveWp(i,dir){
-  const j=i+dir;if(j<0||j>=routeWpList.length) return;
-  [routeWpList[i],routeWpList[j]]=[routeWpList[j],routeWpList[i]];
-  renderWpOrderList();
-}
-
-function renderWpOrderList(){
-  const el=document.getElementById('wp-order-list');
-  if(!routeWpList.length){el.innerHTML='<div class="empty">Nessuna tappa intermedia.</div>';return;}
-  el.innerHTML=routeWpList.map((w,i)=>`
-    <div class="wp-order-item" draggable="true" data-i="${i}"
-      ondragstart="dragStart(event,${i})" ondragover="dragOver(event,${i})"
-      ondrop="dragDrop(event,${i})" ondragend="dragEnd()">
-      <span class="wp-seq">${i+1}</span>
-      <span class="wp-item-name" title="${escAttr(w.name)}">${escH(w.name)}</span>
-      <button class="move-btn" onclick="moveWp(${i},-1)" ${i===0?'disabled':''}>↑</button>
-      <button class="move-btn" onclick="moveWp(${i},1)" ${i===routeWpList.length-1?'disabled':''}>↓</button>
-      <button class="del-btn" onclick="removeRouteWp(${i})">✕</button>
-    </div>`).join('');
-}
-
-function dragStart(e,i){dragSrc=i;e.currentTarget.classList.add('dragging');}
-function dragOver(e,i){e.preventDefault();
-  document.querySelectorAll('.wp-order-item').forEach((el,j)=>el.classList.toggle('drag-over',j===i));}
-function dragDrop(e,i){
-  e.preventDefault();if(dragSrc===null||dragSrc===i) return;
-  const t=routeWpList[dragSrc];routeWpList[dragSrc]=routeWpList[i];routeWpList[i]=t;
-  renderWpOrderList();
-}
-function dragEnd(){
-  dragSrc=null;
-  document.querySelectorAll('.wp-order-item').forEach(el=>el.classList.remove('dragging','drag-over'));
-}
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// ROUTING via OSRM
-// ═══════════════════════════════════════════════════════════════════════════════
-async function calcRoute(){
-  if(!routeStart){showToast('Imposta una partenza');return;}
-  if(!routeEnd){showToast('Imposta un arrivo');return;}
-  setStatus('loading','⏳ Calcolo percorso…');
-
-  const coords=[routeStart,...routeWpList,routeEnd];
-  const profile=routeMode==='walk'?'foot':'driving';
-  const coordStr=coords.map(c=>`${c.lon},${c.lat}`).join(';');
-  const url=`https://router.project-osrm.org/route/v1/${profile}/${coordStr}?overview=full&geometries=geojson`;
-
-  try{
-    const res=await fetch(url);
-    const data=await res.json();
-    if(data.code!=='Ok'||!data.routes?.length){setStatus('err','✕ Percorso non trovato.');return;}
-    const route=data.routes[0];
-    const pts=route.geometry.coordinates.map(c=>({lat:c[1],lon:c[0]}));
-    routeGpxPts=pts;
-    if(routePolyline) rmap.removeLayer(routePolyline);
-    routeMarkers.forEach(m=>rmap.removeLayer(m)); routeMarkers=[];
-    const color=routeMode==='walk'?'#3fb950':'#f85149';
-    routePolyline=L.polyline(pts.map(p=>[p.lat,p.lon]),{color,weight:4,opacity:.9}).addTo(rmap);
-    rmap.fitBounds(routePolyline.getBounds(),{padding:[24,24]});
-    const addRM=(pos,icon,lbl)=>{
-      routeMarkers.push(L.marker([pos.lat,pos.lon],{icon}).addTo(rmap).bindPopup(`<b>${escH(lbl)}</b>`));
-    };
-    addRM(routeStart,PIN_START,'⬤ '+routeStart.name);
-    routeWpList.forEach((w,i)=>addRM(w,PIN_VIA,`${i+1}. ${w.name}`));
-    addRM(routeEnd,PIN_END,'◼ '+routeEnd.name);
-    const km=(route.distance/1000).toFixed(1);
-    const mins=Math.round(route.duration/60);
-    const h=Math.floor(mins/60),m=mins%60;
-    setStatus('ok',`✓ ${km} km · ${h>0?h+'h '+m+'min':m+' min'} · ${routeMode==='walk'?'🏃 Pedone':'🚗 Auto'}`);
-  } catch(e){
-    setStatus('err','✕ Errore di rete. Controlla la connessione.');
+// Set/reset start point (only if no nodes yet, else just add node)
+function drawAddStart(lat,lon){
+  if(drawNodes.length===0){
+    drawAddNode(lat,lon);
+    rmap.setView([lat,lon],14);
+  } else {
+    // Already drawing — treat as next point
+    drawAddNode(lat,lon);
   }
 }
 
-function setStatus(type,msg){
-  const el=document.getElementById('rt-status');
-  el.className='route-status visible '+type;
-  el.textContent=msg;
+// Main: add a node, compute segment from previous node
+async function drawAddNode(lat,lon){
+  if(drawPending) return;
+  const ele = await fetchEleVal(lat,lon);
+  const node = {lat,lon,ele};
+  drawNodes.push(node);
+
+  const idx = drawNodes.length-1;
+  const icon = idx===0 ? PIN_DRAW_START : PIN_DRAW_NODE;
+  const m = L.marker([lat,lon],{icon}).addTo(rmap)
+    .bindPopup(`<b>${idx===0?'▶ Partenza':'Punto '+idx}</b><br>${lat.toFixed(5)}, ${lon.toFixed(5)}${ele!=null?'<br>'+Math.round(ele)+' m':''}`);
+  drawMarkers.push(m);
+
+  if(idx===0){
+    drawSegments.push([]); // dummy segment placeholder for start
+    drawUpdateStatus();
+    return;
+  }
+
+  // compute segment from previous node to this one
+  const prev = drawNodes[idx-1];
+  drawPending=true;
+  drawUpdateStatus('⏳ Calcolo segmento…');
+
+  let segPts;
+  if(drawSegMode==='line'){
+    // straight line — interpolate elevation
+    segPts = drawLineSeg(prev, node);
+  } else {
+    segPts = await drawRouteSeg(prev, node, drawSegMode);
+    if(!segPts) segPts = drawLineSeg(prev, node); // fallback to line
+  }
+
+  // fetch elevation for routed segment points (batch, max 50 pts sampled)
+  segPts = await enrichElevation(segPts);
+
+  drawSegments.push(segPts);
+  drawPending=false;
+
+  // draw polyline for this segment
+  const color = drawSegMode==='line'?'#58a6ff': drawSegMode==='foot'?'#e03030':'#e03030';
+  const dash  = drawSegMode==='line'?'6,4':null;
+  const pl = L.polyline(segPts.map(p=>[p.lat,p.lon]),{
+    color, weight:3, opacity:.9, dashArray:dash
+  }).addTo(rmap);
+  drawPolylines.push(pl);
+
+  // fit bounds
+  const allPts = drawNodes.map(n=>[n.lat,n.lon]);
+  if(allPts.length>1) rmap.fitBounds(L.latLngBounds(allPts),{padding:[24,24],maxZoom:16});
+
+  drawUpdateStatus();
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// EXPORT ROUTE GPX
-// ═══════════════════════════════════════════════════════════════════════════════
-function exportRouteGPX(){
-  if(!routeGpxPts.length){showToast('Prima calcola un percorso');return;}
+function drawLineSeg(a,b){
+  // 10-point interpolation
+  const pts=[];
+  for(let i=0;i<=10;i++){
+    const f=i/10;
+    pts.push({lat:a.lat+(b.lat-a.lat)*f, lon:a.lon+(b.lon-a.lon)*f, ele:null});
+  }
+  return pts;
+}
+
+async function drawRouteSeg(a,b,profile){
+  try{
+    const url=`https://router.project-osrm.org/route/v1/${profile}/${a.lon},${a.lat};${b.lon},${b.lat}?overview=full&geometries=geojson`;
+    const res=await fetch(url);
+    const data=await res.json();
+    if(data.code!=='Ok'||!data.routes?.length) return null;
+    return data.routes[0].geometry.coordinates.map(c=>({lat:c[1],lon:c[0],ele:null}));
+  } catch(e){ return null; }
+}
+
+async function fetchEleVal(lat,lon){
+  try{
+    const r=await fetch(`https://api.open-elevation.com/api/v1/lookup?locations=${lat},${lon}`);
+    const d=await r.json();
+    return d.results?.[0]?.elevation??null;
+  } catch(e){ return null; }
+}
+
+// Batch elevation for segment — sample at most 50 points to avoid API limits
+async function enrichElevation(pts){
+  if(!pts.length) return pts;
+  const step = Math.max(1, Math.ceil(pts.length/50));
+  const sample = pts.filter((_,i)=>i%step===0 || i===pts.length-1);
+  try{
+    const locStr = sample.map(p=>`${p.lat},${p.lon}`).join('|');
+    const r = await fetch(`https://api.open-elevation.com/api/v1/lookup?locations=${locStr}`);
+    const d = await r.json();
+    if(!d.results) return pts;
+    // interpolate elevation back to all points
+    let si=0;
+    pts.forEach((p,i)=>{
+      if(i%step===0 || i===pts.length-1){
+        p.ele = d.results[si]?.elevation??null;
+        si++;
+      }
+    });
+    // linear interp for points between samples
+    for(let i=0;i<pts.length;i++){
+      if(pts[i].ele===null){
+        let prev=i-1; while(prev>=0&&pts[prev].ele===null) prev--;
+        let next=i+1; while(next<pts.length&&pts[next].ele===null) next++;
+        if(prev>=0&&next<pts.length){
+          const f=(i-prev)/(next-prev);
+          pts[i].ele=pts[prev].ele+(pts[next].ele-pts[prev].ele)*f;
+        }
+      }
+    }
+  } catch(e){}
+  return pts;
+}
+
+function drawUndo(){
+  if(drawNodes.length===0){showToast('Nessun punto da annullare');return;}
+  drawNodes.pop();
+  const m=drawMarkers.pop(); if(m) rmap.removeLayer(m);
+  if(drawSegments.length>0){
+    drawSegments.pop();
+    const pl=drawPolylines.pop(); if(pl) rmap.removeLayer(pl);
+  }
+  drawUpdateStatus();
+  showToast('Ultimo punto annullato');
+}
+
+function drawClear(){
+  if(drawNodes.length===0) return;
+  if(!confirm('Cancellare tutta la traccia?')) return;
+  drawMarkers.forEach(m=>rmap.removeLayer(m)); drawMarkers=[];
+  drawPolylines.forEach(p=>rmap.removeLayer(p)); drawPolylines=[];
+  drawNodes=[]; drawSegments=[];
+  drawPending=false;
+  document.getElementById('draw-search').value='';
+  drawUpdateStatus();
+  showToast('Traccia azzerata');
+}
+
+function drawUpdateStatus(msg){
+  const el=document.getElementById('draw-status');
+  if(msg){ el.textContent=msg; el.style.color='var(--amber)'; return; }
+  if(drawNodes.length===0){
+    el.textContent='Cerca una partenza oppure clicca sulla mappa per iniziare';
+    el.style.color='var(--text-dim)'; return;
+  }
+  const allPts = drawSegments.flat();
+  const dist = drawNodes.length>1 ? calcLen(allPts) : 0;
+  const gain = allPts.filter(p=>p.ele!=null).reduce((a,p,i,arr)=>i>0&&p.ele>arr[i-1].ele?a+(p.ele-arr[i-1].ele):a,0);
+  el.textContent=`${drawNodes.length} punti · ${fmtDist(dist)}${gain>0?' · ↑'+Math.round(gain)+' m':''} · Clicca sulla mappa per aggiungere punti`;
+  el.style.color='var(--accent2)';
+}
+
+// rmap click → add draw node
+rmap.on('click', e=>{
+  if(drawPending) return;
+  drawAddNode(e.latlng.lat, e.latlng.lng);
+});
+
+async function drawExport(){
+  if(drawNodes.length<2){showToast('Aggiungi almeno 2 punti');return;}
+  showToast('⏳ Preparazione GPX…');
+
+  // flatten all segment points
+  const allPts=[];
+  // start node
+  allPts.push(drawNodes[0]);
+  for(let i=1;i<drawNodes.length;i++){
+    const seg=drawSegments[i]||[];
+    if(seg.length>1) allPts.push(...seg.slice(1));
+    else allPts.push(drawNodes[i]);
+  }
+
   const today=new Date();
-  const ds=`${today.getFullYear()}${String(today.getMonth()+1).padStart(2,'0')}${String(today.getDate()).padStart(2,'0')}`;
-  const name=`TrackGPX_${ds}`;
+  const yy=String(today.getFullYear()).slice(2);
+  const mm=String(today.getMonth()+1).padStart(2,'0');
+  const dd=String(today.getDate()).padStart(2,'0');
+  const name=`gpx_track_${yy}${mm}${dd}`;
+
   let xml='<?xml version="1.0" encoding="UTF-8"?>\n';
   xml+=`<gpx version="1.1" creator="PAM" xmlns="http://www.topografix.com/GPX/1/1">\n`;
-  xml+=`  <trk><n>${name}</n><trkseg>\n`;
-  routeGpxPts.forEach(p=>{
-    xml+=`    <trkpt lat="${p.lat.toFixed(6)}" lon="${p.lon.toFixed(6)}"></trkpt>\n`;
+  xml+=`  <trk><name>${name}</name><trkseg>\n`;
+  allPts.forEach(p=>{
+    const el=p.ele!=null?`<ele>${p.ele.toFixed(1)}</ele>`:'';
+    xml+=`    <trkpt lat="${p.lat.toFixed(6)}" lon="${p.lon.toFixed(6)}">${el}</trkpt>\n`;
   });
   xml+=`  </trkseg></trk>\n</gpx>`;
   dlBlob(xml,name+'.gpx','application/gpx+xml');
-  showToast(`Esportato: ${name}.gpx ✓`);
+  showToast(`Esportato: ${name}.gpx (${allPts.length} punti) ✓`);
 }
+
+// keep old stubs so nothing else breaks
+function setMode(m){}
+function calcRoute(){}
+function exportRouteGPX(){}
+function addAllWpToRoute(){}
+function clearRouteWp(){}
+function removeRouteWp(){}
+function renderWpOrderList(){}
+function renderRouteWpMarkers(){}
+function toggleRouteViaPick(){}
+function startRouteMapPick(){}
+function stopRouteMapPick(){ }
+function onPickerModeChange(){}
+function refreshPickerWpSelects(){}
+function applyWpPicker(){}
+function setRouteEndpoint(){}
+function resolvePickerSearch(){}
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // ELEVATION MODAL
@@ -1267,7 +1195,7 @@ function showToast(msg){
 
 // close dropdowns on outside click
 document.addEventListener('click',e=>{
-  ['poi-sdrop','start-sdrop','end-sdrop'].forEach(id=>{
+  ['poi-sdrop','draw-sdrop'].forEach(id=>{
     const el=document.getElementById(id);
     if(el&&el.style.display!=='none'&&!el.contains(e.target)){
       const wrap=el.parentElement;
@@ -1281,7 +1209,9 @@ document.addEventListener('click',e=>{
 // ═══════════════════════════════════════════════════════════════════════════════
 if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{});
 render();
-renderWpOrderList();
+// init draw status on load
+setTimeout(()=>drawUpdateStatus(), 100);
 </script>
+
 </body>
 </html>
