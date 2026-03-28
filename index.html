@@ -176,6 +176,39 @@ canvas#elev-canvas{width:100%;height:200px;display:block;border-radius:var(--r);
 .stat-label{font-size:10px;color:var(--text-dim);font-family:'IBM Plex Mono',monospace;letter-spacing:.06em;}
 .stat-val{font-family:'IBM Plex Mono',monospace;font-size:14px;font-weight:600;color:var(--text);margin-top:2px;}
 
+
+/* NAVIGA SCREEN */
+.nav-screen-layout{display:flex;flex:1;flex-direction:column;overflow:hidden;min-height:0;}
+.nav-map-wrap{flex:1 1 auto;min-height:0;position:relative;}
+.nav-map-wrap>div{position:absolute;inset:0;}
+.nav-panel{background:var(--surface);border-top:1px solid var(--border);flex-shrink:0;
+  display:flex;flex-direction:column;gap:0;}
+.nav-stats{display:grid;grid-template-columns:1fr 1fr 1fr;gap:1px;background:var(--border);
+  border-top:1px solid var(--border);}
+.nav-stat{background:var(--surface2);padding:10px 8px;text-align:center;}
+.nav-stat-val{font-family:'IBM Plex Mono',monospace;font-size:22px;font-weight:600;color:var(--text);line-height:1;}
+.nav-stat-unit{font-size:10px;color:var(--text-dim);margin-top:2px;}
+.nav-stat-label{font-size:10px;color:var(--text-dim);font-family:'IBM Plex Mono',monospace;letter-spacing:.06em;margin-bottom:4px;}
+.nav-compass{display:flex;align-items:center;justify-content:center;padding:16px 10px 8px;gap:16px;}
+.nav-arrow-wrap{width:72px;height:72px;flex-shrink:0;position:relative;}
+#nav-arrow-svg{width:72px;height:72px;transition:transform .4s ease;}
+.nav-instruction{flex:1;min-width:0;}
+.nav-instruction-text{font-size:14px;font-weight:600;color:var(--text);line-height:1.4;}
+.nav-instruction-dist{font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--text-dim);margin-top:4px;}
+.nav-dest-bar{padding:8px 10px;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
+.nav-dest-name{font-size:12px;color:var(--text-dim);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+
+/* offline cache panel */
+.offline-bar{display:flex;align-items:center;gap:6px;padding:5px 10px;
+  background:var(--surface2);border-bottom:1px solid var(--border);flex-shrink:0;flex-wrap:wrap;}
+.offline-bar span{font-size:11px;color:var(--text-dim);font-family:'IBM Plex Mono',monospace;}
+#cache-progress{flex:1;height:4px;border-radius:2px;accent-color:var(--accent2);min-width:60px;}
+
+/* OSM offline layer indicator */
+.osm-active .tile-btn[id="btn-osm-layer"]{
+  border-color:var(--accent2);background:rgba(63,185,80,.15);color:var(--accent2);}
+
 /* Mapbox custom marker dots */
 .mb-dot{width:14px;height:14px;border-radius:50%;border:2px solid #fff;cursor:pointer;
   box-shadow:0 0 6px rgba(0,0,0,.5);}
@@ -196,6 +229,7 @@ canvas#elev-canvas{width:100%;height:200px;display:block;border-radius:var(--r);
   <button class="nav-btn active" id="nb-poi" onclick="showScreen('poi')"><span class="ni">📍</span>Waypoint</button>
   <button class="nav-btn" id="nb-trk" onclick="showScreen('trk')"><span class="ni">〰</span>Tracce</button>
   <button class="nav-btn" id="nb-route" onclick="showScreen('route')"><span class="ni">🗺</span>Crea Traccia</button>
+  <button class="nav-btn" id="nb-nav" onclick="showScreen('nav')"><span class="ni">🧭</span>Naviga</button>
 </nav>
 
 <!-- ══ SCREEN: WAYPOINT ══ -->
@@ -335,6 +369,93 @@ canvas#elev-canvas{width:100%;height:200px;display:block;border-radius:var(--r);
   </div>
 </div>
 
+
+<!-- ══ SCREEN: NAVIGA ══ -->
+<div class="screen" id="scr-nav">
+  <div class="topbar">
+    <div class="logo">PAM · Naviga</div>
+    <div style="position:relative;flex:1;min-width:140px;">
+      <input id="nav-search" class="picker-input" placeholder="🔍 Cerca destinazione…" autocomplete="off"
+        oninput="liveSearch('nav-search','nav-sdrop',null)"
+        onkeydown="if(event.key==='Enter'){navSearchGo();closeDrop('nav-sdrop')}">
+      <div class="sdrop" id="nav-sdrop"></div>
+    </div>
+    <button class="btn btn-dim btn-sm" onclick="navPickMode()" id="btn-nav-pick" title="Scegli sulla mappa">🖱</button>
+    <div class="tile-toggle">
+      <button class="tile-btn active" data-tile="outdoors" onclick="setStyle('outdoors')" title="Mapbox Outdoor">🥾</button>
+      <button class="tile-btn" data-tile="streets" onclick="setStyle('streets')" title="Mapbox Stradale">🚗</button>
+      <button class="tile-btn" id="btn-osm-layer" onclick="toggleOsmLayer()" title="OSM offline scaricabile">📡</button>
+    </div>
+  </div>
+
+  <div class="nav-screen-layout">
+    <!-- offline cache bar -->
+    <div class="offline-bar">
+      <div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap;width:100%;">
+        <span id="osm-layer-badge" style="font-family:'IBM Plex Mono',monospace;font-size:10px;
+          background:var(--surface3);padding:2px 7px;border-radius:4px;color:var(--text-dim);">
+          🗺 Mapbox (online)
+        </span>
+        <progress id="cache-progress" value="0" max="100"
+          style="display:none;flex:1;height:4px;border-radius:2px;accent-color:var(--accent2);min-width:60px;"></progress>
+        <span id="cache-status" style="font-family:'IBM Plex Mono',monospace;font-size:10px;
+          color:var(--text-dim);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+          Nessuna area salvata
+        </span>
+        <button class="btn btn-dim btn-sm" onclick="cacheOsmArea()" title="Scarica OSM area visibile per uso offline">
+          💾 Scarica OSM
+        </button>
+        <button class="btn btn-red btn-sm" onclick="clearOsmCache()" title="Cancella OSM salvato">🗑</button>
+      </div>
+    </div>
+
+    <div class="nav-map-wrap"><div id="nav-map"></div>
+      <div class="map-hint" id="nav-map-hint">Clicca sulla mappa per scegliere la destinazione</div>
+    </div>
+
+    <div class="nav-panel">
+      <!-- compass + istruzione -->
+      <div class="nav-compass">
+        <div class="nav-arrow-wrap">
+          <svg id="nav-arrow-svg" viewBox="0 0 72 72" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="36" cy="36" r="34" fill="#21262d" stroke="#30363d" stroke-width="2"/>
+            <polygon points="36,8 44,52 36,44 28,52" fill="#58a6ff"/>
+            <polygon points="36,64 44,20 36,28 28,20" fill="#30363d"/>
+          </svg>
+        </div>
+        <div class="nav-instruction">
+          <div class="nav-instruction-text" id="nav-instr-text">Nessuna destinazione</div>
+          <div class="nav-instruction-dist" id="nav-instr-dist"></div>
+        </div>
+      </div>
+      <!-- stats -->
+      <div class="nav-stats">
+        <div class="nav-stat">
+          <div class="nav-stat-label">DISTANZA</div>
+          <div class="nav-stat-val" id="nav-dist">—</div>
+          <div class="nav-stat-unit" id="nav-dist-unit">m</div>
+        </div>
+        <div class="nav-stat">
+          <div class="nav-stat-label">DISLIVELLO</div>
+          <div class="nav-stat-val" id="nav-dalt">—</div>
+          <div class="nav-stat-unit">m</div>
+        </div>
+        <div class="nav-stat">
+          <div class="nav-stat-label">VELOCITÀ</div>
+          <div class="nav-stat-val" id="nav-speed">—</div>
+          <div class="nav-stat-unit">km/h</div>
+        </div>
+      </div>
+      <!-- dest bar + controls -->
+      <div class="nav-dest-bar">
+        <span class="nav-dest-name" id="nav-dest-name">Nessuna destinazione selezionata</span>
+        <button class="btn btn-blue btn-sm" id="btn-nav-start" onclick="navToggle()">▶ Avvia</button>
+        <button class="btn btn-red btn-sm" onclick="navClear()">✕ Cancella</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- ELEVATION MODAL -->
 <div id="elev-modal">
   <div class="modal-box">
@@ -428,6 +549,7 @@ function setStyle(style){
   map1.setStyle(s);
   map2.setStyle(s);
   map3.setStyle(s);
+  map4.setStyle(s);
 
   map2Ready = false;
   map3DrawReady = false;
@@ -435,17 +557,19 @@ function setStyle(style){
   map1.once('style.load', ()=>{ render(); });
   map2.once('style.load', ()=>{ map2Ready=true; tracks.forEach((_,i)=>addTrackToMap2(i)); });
   map3.once('style.load', ()=>{ map3DrawReady=true; initDrawLayers(); drawRenderWpMarkers(); redrawRoute(); });
+  map4.once('style.load', ()=>{ navMapReady=true; restoreOsmLayerAfterStyleLoad(); map4.addSource(navRouteSrc,{type:'geojson',data:{type:'Feature',geometry:{type:'LineString',coordinates:[]}}});map4.addLayer({id:navRouteLay,type:'line',source:navRouteSrc,paint:{'line-color':'#58a6ff','line-width':4,'line-opacity':.85}}); });
   showToast(style==='outdoors'?'🥾 Mappa outdoor':'🚗 Mappa stradale');
 }
 
 // ═══════════════ SCREEN SWITCH ══════════════════════════════════════════════════
 function showScreen(s){
-  ['poi','trk','route'].forEach(id=>{
+  ['poi','trk','route','nav'].forEach(id=>{
     document.getElementById('scr-'+id).classList.toggle('active',id===s);
     document.getElementById('nb-'+id).classList.toggle('active',id===s);
   });
   if(s==='poi') setTimeout(()=>map1.resize(),60);
   if(s==='trk') setTimeout(()=>map2.resize(),60);
+  if(s==='nav') setTimeout(()=>{ map4.resize(); checkOsmCache(); },60);
   if(s==='route'){
     setTimeout(()=>{
       map3.resize();
@@ -761,6 +885,366 @@ function clearAll(){
 
 // ═══════════════ DRAW TRACK (map3) ══════════════════════════════════════════════
 // Mapbox GL sources/layers for the drawn route
+// ═══════════════ MAP4: NAVIGA ═══════════════════════════════════════════════════
+const map4 = new mapboxgl.Map({
+  container:'nav-map', style:MB_STYLES[currentStyle],
+  center:CENTER, zoom:13, attributionControl:false
+});
+map4.addControl(new mapboxgl.NavigationControl({showCompass:true}),'top-right');
+
+// nav state
+let navDest      = null;   // {lat, lon, name, ele}
+let navActive    = false;
+let navWatchId   = null;
+let navPosMarker = null;   // user position on nav map
+let navDestMarker= null;   // destination marker
+let navRouteSrc  = 'nav-route-src';
+let navRouteLay  = 'nav-route-lay';
+let navPickActive= false;
+let navMapReady  = false;
+let navSteps     = [];     // OSRM step instructions
+let navStepIdx   = 0;
+let navLastPos   = null;
+let navLastAlt   = null;
+
+map4.on('load', ()=>{
+  navMapReady=true;
+  map4.addSource(navRouteSrc,{type:'geojson',data:{type:'Feature',geometry:{type:'LineString',coordinates:[]}}});
+  map4.addLayer({id:navRouteLay,type:'line',source:navRouteSrc,
+    paint:{'line-color':'#58a6ff','line-width':4,'line-opacity':.85}});
+});
+
+// style change: also update map4
+const _origSetStyle = setStyle;
+// We patch setStyle below after its definition
+
+map4.on('click', e=>{
+  if(!navPickActive) return;
+  stopNavPick();
+  const {lat,lng}=e.lngLat;
+  fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`,
+    {headers:{'Accept-Language':'it'}})
+  .then(r=>r.json()).then(d=>setNavDest(lat,lng,d.display_name||`${lat.toFixed(5)},${lng.toFixed(5)}`))
+  .catch(()=>setNavDest(lat,lng,`${lat.toFixed(5)}, ${lng.toFixed(5)}`));
+});
+
+function navPickMode(){
+  navPickActive=!navPickActive;
+  const btn=document.getElementById('btn-nav-pick');
+  btn.classList.toggle('btn-active-map',navPickActive);
+  document.getElementById('nav-map-hint').style.display=navPickActive?'block':'none';
+  map4.getCanvas().style.cursor=navPickActive?'crosshair':'';
+}
+function stopNavPick(){
+  navPickActive=false;
+  document.getElementById('btn-nav-pick').classList.remove('btn-active-map');
+  document.getElementById('nav-map-hint').style.display='none';
+  map4.getCanvas().style.cursor='';
+}
+
+function navSearchGo(){
+  const q=document.getElementById('nav-search').value.trim(); if(!q)return;
+  fetch('https://nominatim.openstreetmap.org/search?format=json&limit=1&q='+encodeURIComponent(q),
+    {headers:{'Accept-Language':'it'}})
+  .then(r=>r.json()).then(d=>{
+    if(!d.length){showToast('Nessun risultato');return;}
+    setNavDest(+d[0].lat,+d[0].lon,d[0].display_name);
+    document.getElementById('nav-search').value=d[0].display_name;
+  }).catch(()=>showToast('Errore ricerca'));
+}
+document.getElementById('nav-search').addEventListener('input',function(){
+  liveSearch('nav-search','nav-sdrop',(name,lat,lon)=>{
+    closeDrop('nav-sdrop');
+    setNavDest(lat,lon,name);
+    document.getElementById('nav-search').value=name;
+  });
+});
+
+async function setNavDest(lat,lon,name){
+  navDest={lat,lon,name,ele:null};
+  document.getElementById('nav-dest-name').textContent=name;
+  // fetch elevation of destination
+  try{
+    const r=await fetch(`https://api.open-elevation.com/api/v1/lookup?locations=${lat},${lon}`);
+    const d=await r.json();
+    if(d.results?.[0]) navDest.ele=d.results[0].elevation;
+  }catch(e){}
+  // place dest marker
+  if(navDestMarker) navDestMarker.remove();
+  const el=makeDot('#f85149',18,'default');
+  navDestMarker=new mapboxgl.Marker({element:el}).setLngLat([lon,lat])
+    .setPopup(new mapboxgl.Popup({offset:10,closeButton:false}).setHTML(`<b>🎯 ${escH(name)}</b>`))
+    .addTo(map4);
+  map4.flyTo({center:[lon,lat],zoom:14});
+  // route drawn as straight line to dest
+  if(navMapReady&&map4.getSource(navRouteSrc)){
+    map4.getSource(navRouteSrc).setData({type:'Feature',geometry:{type:'LineString',coordinates:[[navDest.lon,navDest.lat]]}});
+  }
+  updateNavUI();
+  showToast('Destinazione impostata ✓');
+}
+
+function navClear(){
+  navStop();
+  navDest=null;
+  navSteps=[];navStepIdx=0;
+  if(navDestMarker){navDestMarker.remove();navDestMarker=null;}
+  if(navMapReady&&map4.getSource(navRouteSrc))
+    map4.getSource(navRouteSrc).setData({type:'Feature',geometry:{type:'LineString',coordinates:[]}});
+  document.getElementById('nav-dest-name').textContent='Nessuna destinazione selezionata';
+  document.getElementById('nav-search').value='';
+  document.getElementById('btn-nav-start').textContent='▶ Avvia';
+  document.getElementById('nav-instr-text').textContent='Nessuna destinazione';
+  document.getElementById('nav-instr-dist').textContent='';
+  document.getElementById('nav-dist').textContent='—';
+  document.getElementById('nav-dalt').textContent='—';
+  document.getElementById('nav-speed').textContent='—';
+  setArrow(null);
+}
+
+function navToggle(){
+  if(!navDest){showToast('Imposta prima una destinazione');return;}
+  if(navActive) navStop(); else navStart();
+}
+
+function navStart(){
+  if(!navigator.geolocation){showToast('GPS non disponibile');return;}
+  navActive=true;
+  document.getElementById('btn-nav-start').textContent='⏹ Stop';
+  navWatchId=navigator.geolocation.watchPosition(navOnPos,
+    ()=>showToast('Impossibile acquisire GPS'),
+    {enableHighAccuracy:true,maximumAge:2000,timeout:10000});
+  showToast('Navigazione avviata ✓');
+}
+
+function navStop(){
+  navActive=false;
+  if(navWatchId!=null){navigator.geolocation.clearWatch(navWatchId);navWatchId=null;}
+  document.getElementById('btn-nav-start').textContent='▶ Avvia';
+}
+
+async function navOnPos(pos){
+  const{latitude:lat,longitude:lon,altitude:alt,speed}=pos.coords;
+  navLastPos={lat,lon};
+  if(alt!=null) navLastAlt=alt;
+
+  // update position marker on nav map
+  if(navPosMarker) navPosMarker.remove();
+  const el=makeDot('#3fb950',18,'default');
+  navPosMarker=new mapboxgl.Marker({element:el}).setLngLat([lon,lat]).addTo(map4);
+  map4.easeTo({center:[lon,lat],duration:800});
+
+  // compute bearing to dest
+  if(navDest){
+    const bearing=calcBearing(lat,lon,navDest.lat,navDest.lon);
+    const dist=haversDist(lat,lon,navDest.lat,navDest.lon);
+    const dAlt=navDest.ele!=null&&alt!=null ? Math.round(navDest.ele-alt) : null;
+
+    setArrow(bearing);
+
+    // distance
+    const dEl=document.getElementById('nav-dist');
+    const uEl=document.getElementById('nav-dist-unit');
+    if(dist>=1000){dEl.textContent=(dist/1000).toFixed(1);uEl.textContent='km';}
+    else{dEl.textContent=Math.round(dist);uEl.textContent='m';}
+
+    // dislivello
+    document.getElementById('nav-dalt').textContent=
+      dAlt!=null?(dAlt>=0?'+':'')+dAlt:'—';
+
+    // speed
+    if(speed!=null&&speed>=0) document.getElementById('nav-speed').textContent=(speed*3.6).toFixed(1);
+
+    // Direction label
+    const dirs=['N','NE','E','SE','S','SO','O','NO'];
+    const dirLabel=dirs[Math.round(bearing/45)%8];
+    document.getElementById('nav-instr-text').textContent=
+      `Direzione ${dirLabel} — ${dist>=1000?(dist/1000).toFixed(1)+' km':Math.round(dist)+' m'}`;
+    document.getElementById('nav-instr-dist').textContent=
+      dAlt!=null?`Dislivello destinazione: ${dAlt>=0?'+':''} ${dAlt} m`:'';
+
+    // arrived?
+    if(dist<20){ showToast('🎯 Destinazione raggiunta!'); navStop(); }
+  }
+}
+
+async function navCalcRoute(){
+  if(!navLastPos||!navDest)return;
+  try{
+    const profile='foot'; // default walking for navigation
+    const url=`https://router.project-osrm.org/route/v1/${profile}/${navLastPos.lon},${navLastPos.lat};${navDest.lon},${navDest.lat}?overview=full&geometries=geojson&steps=true&language=it`;
+    const res=await fetch(url);
+    const data=await res.json();
+    if(data.code!=='Ok'||!data.routes?.length)return;
+    const route=data.routes[0];
+    navSteps=route.legs[0]?.steps||[];
+    navStepIdx=0;
+    // draw route
+    if(navMapReady&&map4.getSource(navRouteSrc)){
+      map4.getSource(navRouteSrc).setData({type:'Feature',geometry:route.geometry});
+    }
+  }catch(e){}
+}
+
+function setArrow(bearing){
+  const svg=document.getElementById('nav-arrow-svg');
+  if(bearing===null){svg.style.transform='rotate(0deg)';return;}
+  svg.style.transform=`rotate(${bearing}deg)`;
+}
+
+function calcBearing(lat1,lon1,lat2,lon2){
+  const r=Math.PI/180;
+  const dLon=(lon2-lon1)*r;
+  const y=Math.sin(dLon)*Math.cos(lat2*r);
+  const x=Math.cos(lat1*r)*Math.sin(lat2*r)-Math.sin(lat1*r)*Math.cos(lat2*r)*Math.cos(dLon);
+  return ((Math.atan2(y,x)*180/Math.PI)+360)%360;
+}
+
+function updateNavUI(){
+  if(!navDest)return;
+  document.getElementById('nav-dest-name').textContent=navDest.name;
+}
+
+// ═══════════════ OFFLINE — DOPPIA SOLUZIONE ══════════════════════════════════════
+// Mapbox: caching automatico tile già visitate (via service worker)
+// OSM: download esplicito tile OpenStreetMap (tile.openstreetmap.org) — nessun vincolo ToS
+
+const OSM_CACHE_NAME = 'pam-osm-tiles-v1';
+const OSM_TILE_MAX   = 1000; // tile OSM (256px) — più leggere di Mapbox
+const OSM_URL        = (z,x,y)=>`https://tile.openstreetmap.org/${z}/${x}/${y}.png`;
+
+// OSM overlay layer on map4 (Leaflet-style via Mapbox raster source)
+let osmLayerActive = false;
+const OSM_SRC = 'osm-offline-src';
+const OSM_LAY = 'osm-offline-lay';
+
+function toggleOsmLayer(){
+  if(!map4.loaded()){showToast('Mappa non ancora pronta');return;}
+  osmLayerActive = !osmLayerActive;
+  const btn = document.getElementById('btn-osm-layer');
+  const badge = document.getElementById('osm-layer-badge');
+
+  if(osmLayerActive){
+    btn.classList.add('active');
+    badge.innerHTML = '📡 OSM offline';
+    badge.style.color = 'var(--accent2)';
+    // Add OSM raster source + layer on map4 (below labels)
+    if(!map4.getSource(OSM_SRC)){
+      map4.addSource(OSM_SRC,{
+        type:'raster',
+        tiles:[OSM_URL('{z}','{x}','{y}')],
+        tileSize:256,
+        attribution:'© OpenStreetMap'
+      });
+      // Insert below Mapbox labels for cleaner look
+      const firstSymbol = map4.getStyle().layers.find(l=>l.type==='symbol')?.id;
+      map4.addLayer({id:OSM_LAY,type:'raster',source:OSM_SRC,paint:{'raster-opacity':1}}, firstSymbol);
+    } else {
+      map4.setLayoutProperty(OSM_LAY,'visibility','visible');
+    }
+    showToast('Layer OSM attivo — tile salvate servite offline');
+  } else {
+    btn.classList.remove('active');
+    badge.innerHTML = '🗺 Mapbox (online)';
+    badge.style.color = 'var(--text-dim)';
+    if(map4.getLayer(OSM_LAY)) map4.setLayoutProperty(OSM_LAY,'visibility','none');
+  }
+}
+
+// Re-add OSM layer after style change
+function restoreOsmLayerAfterStyleLoad(){
+  if(!osmLayerActive) return;
+  if(map4.getSource(OSM_SRC)) return;
+  map4.addSource(OSM_SRC,{
+    type:'raster',
+    tiles:[OSM_URL('{z}','{x}','{y}')],
+    tileSize:256,
+    attribution:'© OpenStreetMap'
+  });
+  const firstSymbol=map4.getStyle().layers.find(l=>l.type==='symbol')?.id;
+  map4.addLayer({id:OSM_LAY,type:'raster',source:OSM_SRC,paint:{'raster-opacity':1}},firstSymbol);
+}
+
+async function cacheOsmArea(){
+  if(!('caches' in window)){showToast('Cache non disponibile nel browser');return;}
+  const bounds = map4.getBounds();
+  // Cache 3 zoom levels: current-1, current, current+1 (cap at 17)
+  const baseZoom = Math.round(map4.getZoom());
+  const zooms = [baseZoom-1, baseZoom, baseZoom+1].map(z=>Math.max(1,Math.min(17,z)));
+
+  let allTiles = [];
+  zooms.forEach(z=>{ allTiles = allTiles.concat(getTilesInBounds(bounds,z)); });
+  const limited = allTiles.slice(0, OSM_TILE_MAX);
+
+  document.getElementById('cache-progress').style.display = '';
+  document.getElementById('cache-status').textContent = `Scarico ${limited.length} tile OSM…`;
+
+  const cache = await caches.open(OSM_CACHE_NAME);
+  let done=0, failed=0;
+
+  // Batch fetch with concurrency limit of 6
+  const CONCURRENCY = 6;
+  for(let i=0; i<limited.length; i+=CONCURRENCY){
+    const batch = limited.slice(i, i+CONCURRENCY);
+    await Promise.all(batch.map(async ({x,y,z})=>{
+      const url = OSM_URL(z,x,y);
+      try{
+        const res = await fetch(url, {mode:'cors'});
+        if(res.ok) await cache.put(url, res);
+        else failed++;
+      }catch(e){ failed++; }
+      done++;
+    }));
+    const pct = Math.round(done/limited.length*100);
+    document.getElementById('cache-progress').value = pct;
+    document.getElementById('cache-status').textContent = `${done}/${limited.length} tile OSM (${pct}%)…`;
+  }
+
+  document.getElementById('cache-progress').style.display = 'none';
+  const ok = done-failed;
+  document.getElementById('cache-status').textContent = `✓ ${ok} tile OSM salvate`;
+  showToast(`✓ ${ok} tile offline pronte · attiva 📡 per usarle`);
+
+  // Auto-activate OSM layer if not already on
+  if(!osmLayerActive && ok>0) toggleOsmLayer();
+}
+
+async function clearOsmCache(){
+  if(!confirm('Cancellare tutte le tile OSM salvate?')) return;
+  await caches.delete(OSM_CACHE_NAME);
+  if(osmLayerActive) toggleOsmLayer();
+  document.getElementById('cache-status').textContent = 'Nessuna area salvata';
+  showToast('Cache OSM cancellata');
+}
+
+function getTilesInBounds(bounds,zoom){
+  const tiles=[];
+  const nw=bounds.getNorthWest(), se=bounds.getSouthEast();
+  const [x0,y0]=lngLatToTile(nw.lng,nw.lat,zoom);
+  const [x1,y1]=lngLatToTile(se.lng,se.lat,zoom);
+  for(let x=x0;x<=x1;x++) for(let y=y0;y<=y1;y++) tiles.push({x,y,z:zoom});
+  return tiles;
+}
+
+function lngLatToTile(lng,lat,zoom){
+  const n=Math.pow(2,zoom);
+  const x=Math.floor((lng+180)/360*n);
+  const latR=lat*Math.PI/180;
+  const y=Math.floor((1-Math.log(Math.tan(latR)+1/Math.cos(latR))/Math.PI)/2*n);
+  return [Math.max(0,x), Math.max(0,y)];
+}
+
+// Auto-count cached tiles on nav screen open
+async function checkOsmCache(){
+  if(!('caches' in window)) return;
+  try{
+    const cache = await caches.open(OSM_CACHE_NAME);
+    const keys = await cache.keys();
+    if(keys.length>0)
+      document.getElementById('cache-status').textContent=`${keys.length} tile OSM disponibili offline`;
+  }catch(e){}
+}
+
 const DRAW_LINE_SRC  = 'draw-route-src';
 const DRAW_LINE_LAY  = 'draw-route-lay';
 
@@ -1059,7 +1543,7 @@ function showToast(msg){
 }
 
 document.addEventListener('click',e=>{
-  ['poi-sdrop','draw-sdrop'].forEach(id=>{
+  ['poi-sdrop','draw-sdrop','nav-sdrop'].forEach(id=>{
     const el=document.getElementById(id);
     if(el&&el.style.display!=='none'&&!el.parentElement?.contains(e.target))
       el.style.display='none';
