@@ -393,6 +393,12 @@ canvas#elev-canvas{width:100%;height:200px;display:block;border-radius:var(--r);
       <button class="mode-btn" id="seg-line" onclick="setSegMode('line')" title="Linea retta">📏 Linea</button>
     </div>
 
+    <!-- tile toggle -->
+    <div class="tile-toggle">
+      <button class="tile-btn" data-tile="topo" onclick="setTileType('topo')" title="Mappa escursionistica">🥾</button>
+      <button class="tile-btn" data-tile="road" onclick="setTileType('road')" title="Mappa stradale">🚗</button>
+    </div>
+
     <!-- actions -->
     <button class="btn btn-dim btn-sm" onclick="drawUndo()" title="Annulla ultimo punto">↩ Undo</button>
     <button class="btn btn-red btn-sm" onclick="drawClear()" title="Ricomincia da capo">🗑 Reset</button>
@@ -866,9 +872,16 @@ function showScreen(s){
   if(s==='poi') setTimeout(()=>map.invalidateSize(),60);
   if(s==='trk') setTimeout(()=>trkMap.invalidateSize(),60);
   if(s==='route'){
-    setTimeout(()=>{ rmap.invalidateSize(); drawRenderWpMarkers(); },60);
-    // always topo for track drawing
-    if(currentTileType!=='topo') setTileType('topo');
+    setTimeout(()=>{
+      rmap.invalidateSize();
+      drawRenderWpMarkers();
+      // auto-zoom to WP extent if any selected waypoints
+      const sel=waypoints.filter(w=>w.sel);
+      if(sel.length>0){
+        const bounds=L.latLngBounds(sel.map(w=>[w.lat,w.lon]));
+        rmap.fitBounds(bounds,{padding:[30,30],maxZoom:14});
+      }
+    },80);
   }
 }
 
@@ -879,7 +892,13 @@ function drawRenderWpMarkers(){
   waypoints.filter(w=>w.sel).forEach(w=>{
     const m=L.marker([w.lat,w.lon],{icon:PIN_DRAW_WP})
       .addTo(rmap)
-      .bindPopup(`<b style="color:#3b82f6">📌 ${escH(w.name)}</b>${w.ele!=null?'<br>'+Math.round(w.ele)+' m':''}`);
+      .bindPopup(`<b style="color:#3b82f6">📌 ${escH(w.name)}</b>${w.ele!=null?'<br>'+Math.round(w.ele)+' m':''}<br><small>Clicca per aggiungere alla traccia</small>`);
+    // clicking a blue WP marker adds it as next track node
+    m.on('click', e=>{
+      L.DomEvent.stopPropagation(e);
+      if(drawPending){ showToast('Attendi il calcolo del segmento…'); return; }
+      drawAddNode(w.lat, w.lon);
+    });
     drawWpMarkers.push(m);
   });
 }
@@ -1079,11 +1098,12 @@ function drawUpdateStatus(msg){
   const n = drawNodes.length;
   const dist = n>1 ? calcLen(allPts) : 0;
 
-  const elePts = allPts.filter(p=>p.ele!=null);
   let gain=0, loss=0;
-  for(let i=1;i<elePts.length;i++){
-    const d=elePts[i].ele-elePts[i-1].ele;
-    if(d>0) gain+=d; else loss+=Math.abs(d);
+  for(let i=1;i<allPts.length;i++){
+    if(allPts[i].ele==null||allPts[i-1].ele==null) continue;
+    const diff=allPts[i].ele-allPts[i-1].ele;
+    if(diff>0.5) gain+=diff;        // soglia 0.5m per filtrare rumore GPS
+    else if(diff<-0.5) loss+=Math.abs(diff);
   }
 
   document.getElementById('di-pts').textContent = n>0 ? `${n} pt` : '— pt';
@@ -1117,7 +1137,8 @@ async function drawExport(){
   const mm=String(today.getMonth()+1).padStart(2,'0');
   const dd=String(today.getDate()).padStart(2,'0');
   const trkName=(document.getElementById("draw-name").value.trim()||"traccia");
-  const fileName=`gpx_track_${yy}${mm}${dd}`;
+  const safeName=trkName.replace(/[^a-zA-Z0-9_\-àèéìòùÀÈÉÌÒÙ ]/g,'_').replace(/ +/g,'_');
+  const fileName=`${safeName}_${yy}${mm}${dd}`;
 
   let xml='<?xml version="1.0" encoding="UTF-8"?>\n';
   xml+=`<gpx version="1.1" creator="PAM" xmlns="http://www.topografix.com/GPX/1/1">\n`;
