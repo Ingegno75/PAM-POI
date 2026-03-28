@@ -1,5 +1,4 @@
 <!DOCTYPE html>
-
 <html lang="it">
 <head>
 <meta charset="utf-8">
@@ -11,15 +10,16 @@
 <title>PAM - POI App Manager</title>
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon.png">
-<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
-<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+
+<link href="https://api.mapbox.com/mapbox-gl-js/v3.3.0/mapbox-gl.css" rel="stylesheet">
+<script src="https://api.mapbox.com/mapbox-gl-js/v3.3.0/mapbox-gl.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
 <style>
 :root{
   --bg:#0d1117;--surface:#161b22;--surface2:#21262d;--surface3:#30363d;
   --accent:#58a6ff;--accent2:#3fb950;--warn:#f85149;--amber:#e3b341;
-  --purple:#a371f7;--text:#c9d1d9;--text-dim:#8b949e;
+  --text:#c9d1d9;--text-dim:#8b949e;
   --border:rgba(48,54,61,0.8);--r:8px;
   --safe-top:env(safe-area-inset-top,0px);--safe-bot:env(safe-area-inset-bottom,0px);
 }
@@ -61,22 +61,23 @@ nav{display:flex;background:var(--surface);border-bottom:1px solid var(--border)
 
 /* MAPS */
 .map-wrap,.route-map-wrap,.trk-map-wrap{flex:1 1 auto;min-height:0;position:relative;}
-.map-wrap .leaflet-container,
-.route-map-wrap .leaflet-container,
-.trk-map-wrap .leaflet-container{height:100%!important;background:var(--surface2)!important;}
-.leaflet-popup-content-wrapper{background:var(--surface2);color:var(--text);
-  border:1px solid var(--border);border-radius:var(--r);box-shadow:0 4px 24px rgba(0,0,0,.6);}
-.leaflet-popup-tip{background:var(--surface2);}
-.leaflet-popup-close-button{color:var(--text-dim)!important;}
+.map-wrap>div,.route-map-wrap>div,.trk-map-wrap>div{position:absolute;inset:0;}
 
-/* map click mode overlay */
-.map-hint{position:absolute;top:8px;left:50%;transform:translateX(-50%);
-  background:rgba(88,166,255,.9);color:#000;padding:5px 12px;border-radius:20px;
-  font-size:12px;font-weight:700;z-index:500;pointer-events:none;white-space:nowrap;
-  display:none;}
-.map-hint.show{display:block;}
+/* Mapbox popup dark theme */
+.mapboxgl-popup-content{
+  background:var(--surface2)!important;color:var(--text)!important;
+  border:1px solid var(--border)!important;border-radius:var(--r)!important;
+  box-shadow:0 4px 24px rgba(0,0,0,.6)!important;padding:10px 14px!important;
+  font-family:'Outfit',sans-serif;font-size:13px;}
+.mapboxgl-popup-tip{border-top-color:var(--surface2)!important;
+  border-bottom-color:var(--surface2)!important;}
+.mapboxgl-popup-close-button{color:var(--text-dim)!important;font-size:16px!important;}
+.mapboxgl-ctrl-group{background:var(--surface2)!important;border:1px solid var(--border)!important;}
+.mapboxgl-ctrl-group button{background:var(--surface2)!important;color:var(--text)!important;}
+.mapboxgl-ctrl-attrib{display:none;}
 
-/* BOTTOM PANEL (poi screen only) */
+
+/* BOTTOM PANEL */
 .bottom-panel{background:var(--surface);border-top:1px solid var(--border);
   flex-shrink:0;display:flex;flex-direction:column;max-height:40dvh;}
 .ref-bar{display:flex;align-items:center;gap:6px;padding:5px 10px;
@@ -105,54 +106,30 @@ td{padding:6px 8px;vertical-align:middle;}
 td.mono{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--text-dim);}
 td.name-cell{max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .del-btn{background:none;border:none;color:var(--text-dim);font-size:13px;cursor:pointer;
-  padding:2px 5px;border-radius:4px;transition:color .15s,background .15s;}
-.del-btn:hover{color:var(--warn);background:rgba(248,81,73,.1);}
+  padding:2px 5px;border-radius:4px;transition:color .15s;}
+.del-btn:hover{color:var(--warn);}
 .empty{text-align:center;padding:16px;color:var(--text-dim);font-size:12px;}
 .track-btn{background:var(--surface3);border:none;color:var(--accent);font-size:11px;
-  cursor:pointer;padding:3px 7px;border-radius:4px;font-family:'IBM Plex Mono',monospace;
-  transition:background .15s;}
-.track-btn:hover{background:rgba(88,166,255,.2);}
+  cursor:pointer;padding:3px 7px;border-radius:4px;font-family:'IBM Plex Mono',monospace;}
 .gps-badge{display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:600;
   color:var(--accent2);background:rgba(63,185,80,.12);border-radius:4px;padding:1px 5px;margin-right:3px;}
 .pulse{width:6px;height:6px;border-radius:50%;background:var(--accent2);animation:pulse 1.5s infinite;}
-@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.7)}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
 
 /* TRACKS SCREEN */
 .trk-screen-layout{display:flex;flex:1;flex-direction:column;overflow:hidden;min-height:0;}
 .trk-table-panel{background:var(--surface);border-top:1px solid var(--border);
   flex-shrink:0;max-height:38dvh;display:flex;flex-direction:column;}
-.trk-table-panel .toolbar{border-bottom:1px solid var(--border);}
 
 /* ROUTE SCREEN */
 .route-layout{display:flex;flex:1;flex-direction:column;overflow:hidden;min-height:0;}
 .route-config{padding:8px 10px;background:var(--surface);border-bottom:1px solid var(--border);
   flex-shrink:0;display:flex;flex-direction:column;gap:7px;}
 .route-row{display:flex;gap:6px;align-items:center;flex-wrap:wrap;}
-
-/* point picker row */
-.picker-row{display:flex;gap:5px;align-items:center;flex:1;min-width:200px;flex-wrap:nowrap;}
-.picker-label{font-size:11px;font-family:'IBM Plex Mono',monospace;color:var(--text-dim);
-  white-space:nowrap;min-width:46px;}
-.picker-select{padding:5px 8px;background:var(--bg);border:1px solid var(--border);
-  border-radius:var(--r);color:var(--text);font-family:'Outfit',sans-serif;font-size:12px;
-  outline:none;min-width:0;flex-shrink:0;}
-.picker-select:focus{border-color:var(--accent);}
-.picker-input-wrap{position:relative;flex:1;min-width:0;}
 .picker-input{width:100%;padding:6px 9px;background:var(--bg);border:1px solid var(--border);
-  border-radius:var(--r);color:var(--text);font-family:'Outfit',sans-serif;
-  font-size:12px;outline:none;}
+  border-radius:var(--r);color:var(--text);font-family:'Outfit',sans-serif;font-size:12px;outline:none;}
 .picker-input:focus{border-color:var(--accent);}
 .picker-input::placeholder{color:var(--text-dim);}
-.picker-input.locked{border-color:var(--accent2);color:var(--accent2);background:rgba(63,185,80,.06);}
-
-/* search dropdown */
-.sdrop{position:absolute;top:calc(100% + 3px);left:0;right:0;background:var(--surface2);
-  border:1px solid var(--border);border-radius:var(--r);z-index:600;
-  max-height:180px;overflow-y:auto;box-shadow:0 8px 24px rgba(0,0,0,.5);display:none;}
-.sdrop .si{padding:8px 11px;cursor:pointer;font-size:12px;border-bottom:1px solid rgba(48,54,61,.3);}
-.sdrop .si:hover{background:var(--surface3);}
-.sdrop .si:last-child{border-bottom:none;}
-
 .mode-toggle{display:flex;gap:5px;}
 .mode-btn{display:flex;align-items:center;gap:4px;padding:5px 10px;border:1px solid var(--border);
   border-radius:var(--r);background:var(--surface2);color:var(--text-dim);font-family:'Outfit',sans-serif;
@@ -161,44 +138,23 @@ td.name-cell{max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:
 .mode-btn.active.drive{border-color:var(--warn);background:rgba(248,81,73,.12);color:var(--warn);}
 .mode-btn.active.line-mode{border-color:var(--accent);background:rgba(88,166,255,.15);color:var(--accent);}
 
-.route-wp-panel{background:var(--surface);border-top:1px solid var(--border);
-  flex-shrink:0;max-height:32dvh;display:flex;flex-direction:column;}
-.route-wp-toolbar{display:flex;gap:5px;padding:6px 10px;align-items:center;
-  border-bottom:1px solid var(--border);flex-shrink:0;flex-wrap:wrap;}
-.route-wp-toolbar span{font-size:11px;color:var(--text-dim);font-family:'IBM Plex Mono',monospace;margin-right:auto;}
-.wp-order-list{overflow-y:auto;flex:1;padding:5px 10px;display:flex;flex-direction:column;gap:3px;}
-.wp-order-item{display:flex;align-items:center;gap:6px;background:var(--surface2);
-  border:1px solid var(--border);border-radius:var(--r);padding:6px 9px;
-  cursor:grab;user-select:none;transition:background .1s;}
-.wp-order-item.dragging{opacity:.4;}
-.wp-order-item.drag-over{border-color:var(--accent);background:rgba(88,166,255,.08);}
-.wp-seq{font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;color:var(--accent);min-width:18px;text-align:center;}
-.wp-item-name{flex:1;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.move-btn{background:none;border:none;color:var(--text-dim);cursor:pointer;padding:1px 4px;
-  font-size:13px;border-radius:4px;transition:color .15s;}
-.move-btn:hover{color:var(--accent);}
-
-.route-status{padding:7px 12px;font-size:11px;font-family:'IBM Plex Mono',monospace;
-  color:var(--text-dim);background:var(--surface);border-top:1px solid var(--border);
-  flex-shrink:0;display:none;}
-.route-status.visible{display:block;}
-.route-status.ok{color:var(--accent2);}
-.route-status.err{color:var(--warn);}
-.route-status.loading{color:var(--amber);}
-
-/* PICK CURSOR ON MAP */
-.picking-cursor{cursor:crosshair!important;}
-
 /* TILE SELECTOR */
 .tile-toggle{display:flex;gap:3px;}
 .tile-btn{display:inline-flex;align-items:center;gap:3px;padding:5px 8px;border:1px solid var(--border);
   border-radius:var(--r);background:var(--surface2);color:var(--text-dim);font-family:'Outfit',sans-serif;
-  font-size:11px;font-weight:600;cursor:pointer;transition:all .15s;}
+  font-size:13px;cursor:pointer;transition:all .15s;}
 .tile-btn.active{border-color:var(--accent);background:rgba(88,166,255,.15);color:var(--accent);}
 
-/* DRAW TRACK INFO BAR */
+/* DRAW INFO BAR */
 .draw-stat{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--text-dim);
   background:var(--surface3);border-radius:5px;padding:3px 7px;white-space:nowrap;}
+
+/* search dropdown */
+.sdrop{position:absolute;top:calc(100% + 3px);left:0;right:0;background:var(--surface2);
+  border:1px solid var(--border);border-radius:var(--r);z-index:600;
+  max-height:180px;overflow-y:auto;box-shadow:0 8px 24px rgba(0,0,0,.5);display:none;}
+.sdrop .si{padding:8px 11px;cursor:pointer;font-size:12px;border-bottom:1px solid rgba(48,54,61,.3);}
+.sdrop .si:hover{background:var(--surface3);}
 
 /* ELEVATION MODAL */
 #elev-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:9999;
@@ -211,7 +167,7 @@ td.name-cell{max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:
   border-bottom:1px solid var(--border);flex-shrink:0;}
 .modal-title{font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:600;color:var(--accent);}
 .modal-sub{font-size:12px;color:var(--text-dim);margin-top:2px;}
-.modal-close{background:none;border:none;color:var(--text-dim);font-size:20px;cursor:pointer;padding:0 4px;line-height:1;}
+.modal-close{background:none;border:none;color:var(--text-dim);font-size:20px;cursor:pointer;}
 .modal-body{padding:14px;flex:1;overflow:auto;}
 canvas#elev-canvas{width:100%;height:200px;display:block;border-radius:var(--r);}
 .elev-stats{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;}
@@ -219,6 +175,10 @@ canvas#elev-canvas{width:100%;height:200px;display:block;border-radius:var(--r);
   border-radius:var(--r);padding:8px 10px;}
 .stat-label{font-size:10px;color:var(--text-dim);font-family:'IBM Plex Mono',monospace;letter-spacing:.06em;}
 .stat-val{font-family:'IBM Plex Mono',monospace;font-size:14px;font-weight:600;color:var(--text);margin-top:2px;}
+
+/* Mapbox custom marker dots */
+.mb-dot{width:14px;height:14px;border-radius:50%;border:2px solid #fff;cursor:pointer;
+  box-shadow:0 0 6px rgba(0,0,0,.5);}
 
 /* TOAST */
 .toast{position:fixed;bottom:calc(var(--safe-bot)+12px);left:50%;
@@ -228,31 +188,20 @@ canvas#elev-canvas{width:100%;height:200px;display:block;border-radius:var(--r);
   box-shadow:0 4px 20px rgba(0,0,0,.5);}
 .toast.show{transform:translateX(-50%) translateY(0);}
 </style>
-
 </head>
 <body>
 
-<!-- ══ NAV ══ -->
-
+<!-- NAV -->
 <nav>
-  <button class="nav-btn active" id="nb-poi" onclick="showScreen('poi')">
-    <span class="ni">📍</span>Waypoint
-  </button>
-  <button class="nav-btn" id="nb-trk" onclick="showScreen('trk')">
-    <span class="ni">〰</span>Tracce
-  </button>
-  <button class="nav-btn" id="nb-route" onclick="showScreen('route')">
-    <span class="ni">🗺</span>Crea Traccia
-  </button>
+  <button class="nav-btn active" id="nb-poi" onclick="showScreen('poi')"><span class="ni">📍</span>Waypoint</button>
+  <button class="nav-btn" id="nb-trk" onclick="showScreen('trk')"><span class="ni">〰</span>Tracce</button>
+  <button class="nav-btn" id="nb-route" onclick="showScreen('route')"><span class="ni">🗺</span>Crea Traccia</button>
 </nav>
 
-<!-- ══════════════════════ SCREEN: WAYPOINT ══════════════════════ -->
-
+<!-- ══ SCREEN: WAYPOINT ══ -->
 <div class="screen active" id="scr-poi">
-
   <div class="topbar">
     <div class="logo">PAM</div>
-    <!-- search with live dropdown -->
     <div style="position:relative;flex:1;min-width:150px;display:flex;gap:5px;">
       <div style="position:relative;flex:1;min-width:0;">
         <input id="poi-search" class="picker-input" placeholder="Cerca indirizzo…" autocomplete="off"
@@ -261,25 +210,18 @@ canvas#elev-canvas{width:100%;height:200px;display:block;border-radius:var(--r);
         <div class="sdrop" id="poi-sdrop"></div>
       </div>
       <button class="btn btn-blue btn-sm" onclick="addPoiFromSearch();closeDrop('poi-sdrop')">🔍</button>
-      <button class="btn btn-dim btn-sm" onclick="document.getElementById('poi-search').value='';closeDrop('poi-sdrop')" title="Cancella">✕</button>
+      <button class="btn btn-dim btn-sm" onclick="document.getElementById('poi-search').value='';closeDrop('poi-sdrop')">✕</button>
     </div>
     <button class="btn btn-amber btn-sm" onclick="getGPS()">📍 GPS</button>
-    <!-- click on map toggle -->
-    <button class="btn btn-sm" id="btn-mapclick" onclick="toggleMapClick()"
-      title="Aggiungi WP cliccando sulla mappa">🖱 Mappa</button>
+    <button class="btn btn-sm" id="btn-mapclick" onclick="toggleMapClick()" title="Aggiungi WP cliccando mappa">🖱 Mappa</button>
     <div class="tile-toggle">
-      <button class="tile-btn active" data-tile="road" onclick="setTileType('road')" title="Mappa stradale">🚗</button>
-      <button class="tile-btn" data-tile="topo" onclick="setTileType('topo')" title="Mappa escursionistica">🥾</button>
+      <button class="tile-btn active" data-tile="outdoors" onclick="setStyle('outdoors')" title="Outdoor">🥾</button>
+      <button class="tile-btn" data-tile="streets" onclick="setStyle('streets')" title="Stradale">🚗</button>
     </div>
   </div>
-
-  <div class="map-wrap">
-    <div id="map"></div>
-    <div class="map-hint" id="map-hint">Clicca sulla mappa per aggiungere un waypoint · Tieni premuto per annullare</div>
+  <div class="map-wrap"><div id="map"></div>
   </div>
-
   <div class="bottom-panel">
-    <!-- reference distance selector -->
     <div class="ref-bar">
       <span class="ref-label">Distanza da:</span>
       <select class="ref-sel" id="ref-sel" onchange="renderPoiTable()">
@@ -307,125 +249,93 @@ canvas#elev-canvas{width:100%;height:200px;display:block;border-radius:var(--r);
   </div>
 </div>
 
-<!-- ══════════════════════ SCREEN: TRACCE ══════════════════════ -->
-
+<!-- ══ SCREEN: TRACCE ══ -->
 <div class="screen" id="scr-trk">
-
   <div class="topbar">
     <div class="logo">PAM · Tracce</div>
     <div class="tile-toggle">
-      <button class="tile-btn active" data-tile="road" onclick="setTileType('road')" title="Mappa stradale">🚗</button>
-      <button class="tile-btn" data-tile="topo" onclick="setTileType('topo')" title="Mappa escursionistica">🥾</button>
+      <button class="tile-btn active" data-tile="outdoors" onclick="setStyle('outdoors')" title="Outdoor">🥾</button>
+      <button class="tile-btn" data-tile="streets" onclick="setStyle('streets')" title="Stradale">🚗</button>
     </div>
   </div>
-
   <div class="trk-screen-layout">
-    <div class="trk-map-wrap">
-      <div id="trk-map"></div>
+    <div class="trk-map-wrap"><div id="trk-map"></div></div>
+    <div class="trk-table-panel">
+      <div class="toolbar">
+        <label class="btn btn-dim btn-sm" for="trk-file-input">📂 Importa traccia GPX</label>
+        <input type="file" id="trk-file-input" accept=".gpx" style="display:none">
+        <button class="btn btn-red btn-sm" onclick="clearTracks()">🗑 Rimuovi tutte</button>
+      </div>
+      <div class="panel-body">
+        <table>
+          <thead><tr>
+            <th>Nome traccia</th>
+            <th style="width:88px">Lunghezza</th>
+            <th style="width:54px">Punti</th>
+            <th style="width:72px">Profilo</th>
+            <th style="width:20px"></th>
+          </tr></thead>
+          <tbody id="trk-body"></tbody>
+        </table>
+      </div>
     </div>
-
-```
-<div class="trk-table-panel">
-  <div class="toolbar">
-    <label class="btn btn-dim btn-sm" for="trk-file-input">📂 Importa traccia GPX</label>
-    <input type="file" id="trk-file-input" accept=".gpx" style="display:none">
-    <button class="btn btn-red btn-sm" onclick="clearTracks()">🗑 Rimuovi tutte</button>
-  </div>
-  <div class="panel-body">
-    <table>
-      <thead><tr>
-        <th>Nome traccia</th>
-        <th style="width:88px">Lunghezza</th>
-        <th style="width:54px">Punti</th>
-        <th style="width:72px">Profilo</th>
-        <th style="width:20px"></th>
-      </tr></thead>
-      <tbody id="trk-body"></tbody>
-    </table>
-  </div>
-</div>
-```
-
   </div>
 </div>
 
-<!-- ══════════════════════ SCREEN: CREA TRACCIA ══════════════════════ -->
-
+<!-- ══ SCREEN: CREA TRACCIA ══ -->
 <div class="screen" id="scr-route">
   <div class="route-layout">
-
-```
-<!-- info panel: nome + stats traccia -->
-<div style="display:flex;align-items:center;gap:8px;padding:6px 10px;
-  background:var(--surface2);border-bottom:1px solid var(--border);flex-shrink:0;flex-wrap:wrap;">
-  <input id="draw-name" value="Nuova traccia"
-    style="background:var(--bg);border:1px solid var(--border);border-radius:var(--r);
-      color:var(--text);font-family:'Outfit',sans-serif;font-size:13px;font-weight:600;
-      padding:5px 9px;outline:none;min-width:120px;flex:1;max-width:220px;"
-    onfocus="this.style.borderColor='var(--accent)'"
-    onblur="this.style.borderColor='var(--border)'">
-  <div id="draw-info-bar" style="display:flex;gap:10px;flex-wrap:wrap;flex:1;">
-    <span class="draw-stat" id="di-pts">— pt</span>
-    <span class="draw-stat" id="di-len">— km</span>
-    <span class="draw-stat" id="di-dp" style="color:var(--accent2)">D+ —</span>
-    <span class="draw-stat" id="di-dm" style="color:var(--warn)">D− —</span>
-  </div>
-</div>
-
-<!-- toolbar -->
-<div class="route-config">
-  <div class="route-row" style="flex-wrap:wrap;gap:6px;">
-
-    <!-- start point search -->
-    <div style="position:relative;flex:1;min-width:160px;">
-      <input class="picker-input" id="draw-search" placeholder="🔍 Cerca punto di partenza…"
-        autocomplete="off"
-        oninput="liveSearch('draw-search','draw-sdrop',null)"
-        onkeydown="if(event.key==='Enter'){drawSearchGo();closeDrop('draw-sdrop')}">
-      <div class="sdrop" id="draw-sdrop"></div>
+    <!-- info panel -->
+    <div style="display:flex;align-items:center;gap:8px;padding:6px 10px;
+      background:var(--surface2);border-bottom:1px solid var(--border);flex-shrink:0;flex-wrap:wrap;">
+      <input id="draw-name" value="Nuova traccia"
+        style="background:var(--bg);border:1px solid var(--border);border-radius:var(--r);
+          color:var(--text);font-family:'Outfit',sans-serif;font-size:13px;font-weight:600;
+          padding:5px 9px;outline:none;min-width:120px;flex:1;max-width:220px;"
+        onfocus="this.style.borderColor='var(--accent)'"
+        onblur="this.style.borderColor='var(--border)'">
+      <div style="display:flex;gap:8px;flex-wrap:wrap;flex:1;">
+        <span class="draw-stat" id="di-pts">— pt</span>
+        <span class="draw-stat" id="di-len">—</span>
+        <span class="draw-stat" id="di-dp" style="color:var(--accent2)">D+ —</span>
+        <span class="draw-stat" id="di-dm" style="color:var(--warn)">D− —</span>
+      </div>
     </div>
-    <button class="btn btn-dim btn-sm" onclick="drawUseGPS()" title="Usa GPS come punto di partenza">📍 GPS</button>
-
-    <!-- segment mode -->
-    <div class="mode-toggle">
-      <button class="mode-btn walk active" id="seg-walk" onclick="setSegMode('foot')" title="Sentiero/pedone">🏃 Sentiero</button>
-      <button class="mode-btn drive" id="seg-drive" onclick="setSegMode('driving')" title="Strada/auto">🚗 Strada</button>
-      <button class="mode-btn" id="seg-line" onclick="setSegMode('line')" title="Linea retta">📏 Linea</button>
+    <!-- toolbar -->
+    <div class="route-config">
+      <div class="route-row" style="flex-wrap:wrap;gap:6px;">
+        <div style="position:relative;flex:1;min-width:160px;">
+          <input class="picker-input" id="draw-search" placeholder="🔍 Cerca punto di partenza…"
+            autocomplete="off"
+            oninput="liveSearch('draw-search','draw-sdrop',null)"
+            onkeydown="if(event.key==='Enter'){drawSearchGo();closeDrop('draw-sdrop')}">
+          <div class="sdrop" id="draw-sdrop"></div>
+        </div>
+        <button class="btn btn-dim btn-sm" onclick="drawUseGPS()">📍 GPS</button>
+        <div class="mode-toggle">
+          <button class="mode-btn walk active" id="seg-walk" onclick="setSegMode('foot')">🏃 Sentiero</button>
+          <button class="mode-btn drive" id="seg-drive" onclick="setSegMode('driving')">🚗 Strada</button>
+          <button class="mode-btn" id="seg-line" onclick="setSegMode('line')">📏 Linea</button>
+        </div>
+        <div class="tile-toggle">
+          <button class="tile-btn active" data-tile="outdoors" onclick="setStyle('outdoors')" title="Outdoor">🥾</button>
+          <button class="tile-btn" data-tile="streets" onclick="setStyle('streets')" title="Stradale">🚗</button>
+        </div>
+        <button class="btn btn-dim btn-sm" onclick="drawUndo()">↩ Undo</button>
+        <button class="btn btn-red btn-sm" onclick="drawClear()">🗑 Reset</button>
+        <button class="btn btn-green btn-sm" onclick="drawExport()">⬇ Esporta GPX</button>
+      </div>
     </div>
-
-    <!-- tile toggle -->
-    <div class="tile-toggle">
-      <button class="tile-btn" data-tile="topo" onclick="setTileType('topo')" title="Mappa escursionistica">🥾</button>
-      <button class="tile-btn" data-tile="road" onclick="setTileType('road')" title="Mappa stradale">🚗</button>
+    <!-- map -->
+    <div class="route-map-wrap" style="cursor:crosshair;">
+      <div id="route-map"></div>
+      <div class="map-hint" id="route-map-hint" style="display:none;"></div>
+     
     </div>
-
-    <!-- actions -->
-    <button class="btn btn-dim btn-sm" onclick="drawUndo()" title="Annulla ultimo punto">↩ Undo</button>
-    <button class="btn btn-red btn-sm" onclick="drawClear()" title="Ricomincia da capo">🗑 Reset</button>
-    <button class="btn btn-green btn-sm" onclick="drawExport()">⬇ Esporta GPX</button>
-  </div>
-</div>
-
-<!-- map fills remaining space -->
-<div class="route-map-wrap" style="cursor:crosshair;">
-  <div id="route-map"></div>
-  <div class="map-hint" id="route-map-hint" style="display:none;"></div>
-  <!-- legend -->
-  <div style="position:absolute;bottom:8px;left:8px;z-index:500;
-    background:rgba(13,17,23,.88);border:1px solid rgba(48,54,61,.8);border-radius:6px;
-    padding:5px 9px;font-size:10px;color:#8b949e;pointer-events:none;
-    font-family:'IBM Plex Mono',monospace;line-height:1.7;">
-    🟢 Partenza · 🔴 Punti traccia · 🔵 Waypoint<br>
-    Clicca mappa per aggiungere punti
-  </div>
-</div>
-```
-
   </div>
 </div>
 
 <!-- ELEVATION MODAL -->
-
 <div id="elev-modal">
   <div class="modal-box">
     <div class="modal-header">
@@ -445,144 +355,140 @@ canvas#elev-canvas{width:100%;height:200px;display:block;border-radius:var(--r);
 <div class="toast" id="toast"></div>
 
 <script>
-// ═══════════════════════════════════════════════════════════════════════════════
-// STATE
-// ═══════════════════════════════════════════════════════════════════════════════
-let waypoints = JSON.parse(localStorage.getItem('pam_wp') || '[]');
-let tracks    = [];
-let markers   = [];
-let gpsPos    = null;
-let gpsMarker = null;
+'use strict';
+// ═══════════════ CONFIG ═════════════════════════════════════════════════════════
+const MB_TOKEN = 'pk.eyJ1IjoiaW5nZWdubzc1IiwiYSI6ImNtbmE2NzhjNjBlbXgycXBiMTZxcWppZnEifQ.wYpxrF66xLzPz2Or_QJCvA';
+mapboxgl.accessToken = MB_TOKEN;
 
-// map-click mode for WP screen
+const MB_STYLES = {
+  outdoors: 'mapbox://styles/mapbox/outdoors-v12',
+  streets:  'mapbox://styles/mapbox/streets-v12'
+};
+let currentStyle = 'outdoors';
+
+// ═══════════════ STATE ══════════════════════════════════════════════════════════
+let waypoints  = JSON.parse(localStorage.getItem('pam_wp') || '[]');
+let tracks     = [];
+let gpsPos     = null;
 let mapClickMode = false;
-let mapClickMarker = null; // temporary preview
-
-// route state
-let routeMode   = 'walk';
-let routeStart  = null;
-let routeEnd    = null;
-let routeWpList = [];
-let routePolyline = null;
-let routeMarkers  = [];
-let routeGpxPts   = [];
-
-// which endpoint is being picked by map click in route screen: null | 'start' | 'end'
-let routeMapPicking = null;
-let routePickMarkers = {start:null, end:null};
-
-let dragSrc = null;
 let searchTimers = {};
 
-// tile layers
-const TILES = {
-  road: {
-    url:'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-    attr:'© OpenStreetMap',
-    label:'🚗 Stradale'
-  },
-  topo: {
-    url:'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
-    attr:'© OpenTopoMap',
-    label:'🥾 Escursionismo'
-  }
-};
-let currentTileType = 'road';
-let tileLayers = {}; // map-id -> current tile layer
+// markers stored as Mapbox Marker objects
+let poiMarkers   = [];   // waypoint markers on map1
+let gpsMarker1   = null;
+let trkLayers    = [];   // {id, sourceId} for track polylines on map2
+let drawNodes    = [];
+let drawSegments = [];
+let drawSegMode  = 'foot';
+let drawPending  = false;
+let drawWpMarkers= [];   // blue WP markers on rmap
 
-// route-map via-click mode
-let routeViaPickMode = false;
-let routeViaMarkers  = [];  // red markers on rmap for WPs shown as context
+// ═══════════════ MAPS ═══════════════════════════════════════════════════════════
+const CENTER = [7.68, 45.07];
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// MAPS
-// ═══════════════════════════════════════════════════════════════════════════════
-const map    = L.map('map',       {zoomControl:true}).setView([45.07,7.68],10);
-const trkMap = L.map('trk-map',   {zoomControl:true}).setView([45.07,7.68],10);
-const rmap   = L.map('route-map', {zoomControl:true}).setView([45.07,7.68],10);
-
-// ── Tile layer helpers ─────────────────────────────────────────────────────────
-function buildTile(type){ return L.tileLayer(TILES[type].url,{maxZoom:19,attribution:TILES[type].attr}); }
-
-tileLayers.map    = buildTile('road'); tileLayers.map.addTo(map);
-tileLayers.trkMap = buildTile('road'); tileLayers.trkMap.addTo(trkMap);
-tileLayers.rmap   = buildTile('road'); tileLayers.rmap.addTo(rmap);
-
-function setTileType(type){
-  currentTileType=type;
-  ['map','trkMap','rmap'].forEach(id=>{
-    const m = id==='map'?map:id==='trkMap'?trkMap:rmap;
-    m.removeLayer(tileLayers[id]);
-    tileLayers[id]=buildTile(type);
-    tileLayers[id].addTo(m);
-  });
-  // update button states
-  document.querySelectorAll('.tile-btn').forEach(b=>{
-    b.classList.toggle('active', b.dataset.tile===type);
-  });
-  showToast(TILES[type].label+' attivo');
-}
-
-// ── POI map click ──────────────────────────────────────────────────────────────
-map.on('click', e => {
-  if (!mapClickMode) return;
-  const {lat, lng} = e.latlng;
-  // Reverse geocode
-  fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`,
-    {headers:{'Accept-Language':'it'}})
-  .then(r=>r.json())
-  .then(d=>{
-    const name = d.display_name || `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
-    waypoints.push({name, lat, lon:lng, ele:null, sel:true});
-    fetchEle(waypoints.length-1, lat, lng);
-    render();
-    showToast('WP aggiunto dalla mappa ✓');
-  })
-  .catch(()=>{
-    waypoints.push({name:`${lat.toFixed(5)}, ${lng.toFixed(5)}`, lat, lon:lng, ele:null, sel:true});
-    render();
-  });
+const map1 = new mapboxgl.Map({
+  container:'map', style:MB_STYLES.outdoors,
+  center:CENTER, zoom:9, attributionControl:false
+});
+const map2 = new mapboxgl.Map({
+  container:'trk-map', style:MB_STYLES.outdoors,
+  center:CENTER, zoom:9, attributionControl:false
+});
+const map3 = new mapboxgl.Map({
+  container:'route-map', style:MB_STYLES.outdoors,
+  center:CENTER, zoom:9, attributionControl:false
 });
 
-// rmap click is handled inside the Draw Track section below
+[map1,map2,map3].forEach(m=>{
+  m.addControl(new mapboxgl.NavigationControl({showCompass:false}),'top-right');
+});
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// ICONS
-// ═══════════════════════════════════════════════════════════════════════════════
-function makePin(color, size=13){
-  return L.divIcon({className:'',iconSize:[size,size],iconAnchor:[size/2,size/2],
-    html:`<div style="width:${size}px;height:${size}px;border-radius:50%;background:${color};border:2px solid #fff;box-shadow:0 0 7px ${color}88;"></div>`});
-}
-const PIN_N    = makePin('#e03030');       // waypoint: rosso
-const PIN_SEL  = makePin('#ff6b00',17);    // selezionato: arancio brillante
-const PIN_GPS  = makePin('#3fb950',15);    // GPS: verde
-const PIN_MAPCLICK = makePin('#ff3030',16);
-const PIN_START= makePin('#3fb950',18);    // partenza: verde
-const PIN_END  = makePin('#f85149',18);    // arrivo: rosso scuro
-const PIN_VIA  = makePin('#e03030',15);    // tappa via: rosso (coerente con WP)
+// Track loaded state so we can add sources after style loads
+let map2Ready = false, map3Ready = false;
+let map2PendingLayers = [], map3PendingLayers = [];
+let map3DrawReady = false;
+let map3DrawPending = [];  // actions to run after map3 loads
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// SAVE
-// ═══════════════════════════════════════════════════════════════════════════════
-function save(){ localStorage.setItem('pam_wp', JSON.stringify(waypoints)); }
+map1.on('load', ()=>{ render(); });
+map2.on('load', ()=>{ map2Ready=true; map2PendingLayers.forEach(fn=>fn()); map2PendingLayers=[]; });
+map3.on('load', ()=>{
+  map3DrawReady=true;
+  initDrawLayers();
+  map3DrawPending.forEach(fn=>fn()); map3DrawPending=[];
+});
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// SCREEN SWITCH
-// ═══════════════════════════════════════════════════════════════════════════════
-// (showScreen, renderRouteWpMarkers, toggleRouteViaPick defined in Draw Track section)
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// RENDER WAYPOINTS
-// ═══════════════════════════════════════════════════════════════════════════════
-function render(){
-  markers.forEach(m=>map.removeLayer(m));
-  markers=[];
-  waypoints.forEach((w,i)=>{
-    const m=L.marker([w.lat,w.lon],{icon:w.sel?PIN_SEL:PIN_N}).addTo(map);
-    m.bindPopup(`<b>${escH(w.name)}</b><br><small>${w.lat.toFixed(5)}, ${w.lon.toFixed(5)}</small>`);
-    m.on('click',e=>{ if(mapClickMode) return; w.sel=!w.sel; render(); });
-    markers.push(m);
+// ═══════════════ STYLE SWITCHER ═════════════════════════════════════════════════
+function setStyle(style){
+  currentStyle = style;
+  document.querySelectorAll('.tile-btn').forEach(b=>{
+    b.classList.toggle('active', b.dataset.tile===style);
   });
+  const s = MB_STYLES[style];
+  // Re-load styles; re-add sources/layers after load
+  map1.setStyle(s);
+  map2.setStyle(s);
+  map3.setStyle(s);
+
+  map2Ready = false;
+  map3DrawReady = false;
+
+  map1.once('style.load', ()=>{ render(); });
+  map2.once('style.load', ()=>{ map2Ready=true; tracks.forEach((_,i)=>addTrackToMap2(i)); });
+  map3.once('style.load', ()=>{ map3DrawReady=true; initDrawLayers(); drawRenderWpMarkers(); redrawRoute(); });
+  showToast(style==='outdoors'?'🥾 Mappa outdoor':'🚗 Mappa stradale');
+}
+
+// ═══════════════ SCREEN SWITCH ══════════════════════════════════════════════════
+function showScreen(s){
+  ['poi','trk','route'].forEach(id=>{
+    document.getElementById('scr-'+id).classList.toggle('active',id===s);
+    document.getElementById('nb-'+id).classList.toggle('active',id===s);
+  });
+  if(s==='poi') setTimeout(()=>map1.resize(),60);
+  if(s==='trk') setTimeout(()=>map2.resize(),60);
+  if(s==='route'){
+    setTimeout(()=>{
+      map3.resize();
+      drawRenderWpMarkers();
+      const sel=waypoints.filter(w=>w.sel);
+      if(sel.length>0){
+        const lngs=sel.map(w=>w.lon), lats=sel.map(w=>w.lat);
+        map3.fitBounds([[Math.min(...lngs),Math.min(...lats)],[Math.max(...lngs),Math.max(...lats)]],
+          {padding:40,maxZoom:14});
+      }
+    },80);
+  }
+}
+
+// ═══════════════ MARKER HELPERS ═════════════════════════════════════════════════
+function makeDot(color, size=14, cursor='pointer'){
+  const el=document.createElement('div');
+  el.className='mb-dot';
+  el.style.cssText=`width:${size}px;height:${size}px;background:${color};cursor:${cursor};`;
+  return el;
+}
+
+// ═══════════════ RENDER POI (map1) ══════════════════════════════════════════════
+function render(){
+  // remove old markers
+  poiMarkers.forEach(m=>m.remove()); poiMarkers=[];
+
+  waypoints.forEach((w,i)=>{
+    const color = w.sel ? '#ff6b00' : '#e03030';
+    const el = makeDot(color, w.sel?17:14);
+    const popup = new mapboxgl.Popup({offset:10,closeButton:true,closeOnClick:false})
+      .setHTML(`<b>${escH(w.name)}</b><br><small>${w.lat.toFixed(5)}, ${w.lon.toFixed(5)}</small>`);
+    const m = new mapboxgl.Marker({element:el})
+      .setLngLat([w.lon,w.lat])
+      
+      .addTo(map1);
+    el.addEventListener('click', e=>{
+      if(mapClickMode){ e.stopPropagation(); return; }
+      w.sel=!w.sel; render();
+    });
+    poiMarkers.push(m);
+  });
+
   renderPoiTable();
   updateRefSelect();
   save();
@@ -610,7 +516,6 @@ function renderPoiTable(){
   const tb=document.getElementById('poi-body');
   const ref=getRefPos();
   const rows=[];
-
   if(gpsPos){
     const isRef=(document.getElementById('ref-sel').value==='gps');
     const d=!isRef&&ref?haversDist(ref.lat,ref.lon,gpsPos.lat,gpsPos.lon):null;
@@ -618,11 +523,8 @@ function renderPoiTable(){
       <td><input type="checkbox" ${gpsPos.sel?'checked':''} onclick="event.stopPropagation();toggleGpsSel()"></td>
       <td class="name-cell"><span class="gps-badge"><span class="pulse"></span>GPS</span>Posizione attuale</td>
       <td class="mono">${gpsPos.alt!=null?Math.round(gpsPos.alt):'—'}</td>
-      <td class="mono">${d!=null?fmtDist(d):'—'}</td>
-      <td></td>
-    </tr>`);
+      <td class="mono">${d!=null?fmtDist(d):'—'}</td><td></td></tr>`);
   }
-
   waypoints.forEach((w,i)=>{
     const isRef=(document.getElementById('ref-sel').value===`wp:${i}`);
     const d=!isRef&&ref?haversDist(ref.lat,ref.lon,w.lat,w.lon):null;
@@ -631,48 +533,65 @@ function renderPoiTable(){
       <td class="name-cell" title="${escAttr(w.name)}">${escH(w.name)}</td>
       <td class="mono">${w.ele!=null?Math.round(w.ele):'—'}</td>
       <td class="mono">${d!=null?fmtDist(d):'—'}</td>
-      <td><button class="del-btn" onclick="event.stopPropagation();delPoi(${i})">✕</button></td>
-    </tr>`);
+      <td><button class="del-btn" onclick="event.stopPropagation();delPoi(${i})">✕</button></td></tr>`);
   });
-
-  tb.innerHTML=rows.length?rows.join(''):'<tr><td colspan="5" class="empty">Nessun waypoint. Cerca, clicca sulla mappa o importa GPX.</td></tr>';
+  tb.innerHTML=rows.length?rows.join(''):'<tr><td colspan="5" class="empty">Nessun waypoint.</td></tr>';
 }
 
 function togglePoi(i){waypoints[i].sel=!waypoints[i].sel;render();}
 function delPoi(i){waypoints.splice(i,1);render();}
 function toggleGpsSel(){if(gpsPos){gpsPos.sel=!gpsPos.sel;renderPoiTable();}}
+function save(){localStorage.setItem('pam_wp',JSON.stringify(waypoints));}
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// MAP CLICK MODE (POI screen)
-// ═══════════════════════════════════════════════════════════════════════════════
+// ═══════════════ MAP CLICK (WP screen) ══════════════════════════════════════════
 function toggleMapClick(){
   mapClickMode=!mapClickMode;
   const btn=document.getElementById('btn-mapclick');
-  const hint=document.getElementById('map-hint');
   btn.className='btn btn-sm'+(mapClickMode?' btn-active-map':'');
-  hint.classList.toggle('show', mapClickMode);
-  map.getContainer().style.cursor=mapClickMode?'crosshair':'';
+  map1.getCanvas().style.cursor=mapClickMode?'crosshair':'';
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// GPS
-// ═══════════════════════════════════════════════════════════════════════════════
+map1.on('click', e=>{
+  if(!mapClickMode) return;
+  const{lng,lat}=e.lngLat;
+  fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`,
+    {headers:{'Accept-Language':'it'}})
+  .then(r=>r.json())
+  .then(d=>{
+    waypoints.push({name:d.display_name||`${lat.toFixed(5)},${lng.toFixed(5)}`,lat,lon:lng,ele:null,sel:true});
+    fetchEle(waypoints.length-1,lat,lng);
+    render(); showToast('WP aggiunto ✓');
+  }).catch(()=>{
+    waypoints.push({name:`${lat.toFixed(5)}, ${lng.toFixed(5)}`,lat,lon:lng,ele:null,sel:true});
+    render();
+  });
+});
+
+// ═══════════════ GPS ════════════════════════════════════════════════════════════
 function getGPS(){
   if(!navigator.geolocation){showToast('GPS non disponibile');return;}
   navigator.geolocation.getCurrentPosition(p=>{
     const{latitude:lat,longitude:lon,altitude:alt}=p.coords;
     gpsPos={lat,lon,alt,sel:false};
-    if(gpsMarker) map.removeLayer(gpsMarker);
-    gpsMarker=L.marker([lat,lon],{icon:PIN_GPS}).addTo(map).bindPopup('<b>📍 Posizione attuale</b>');
-    map.setView([lat,lon],14);
+    if(gpsMarker1) gpsMarker1.remove();
+    const el=makeDot('#3fb950',16,'default');
+    const popup=new mapboxgl.Popup({offset:10}).setHTML('<b>📍 Posizione attuale</b>');
+    gpsMarker1=new mapboxgl.Marker({element:el}).setLngLat([lon,lat]).addTo(map1);
+    map1.flyTo({center:[lon,lat],zoom:14});
     render(); showToast('Posizione acquisita ✓');
   },()=>showToast('Impossibile acquisire GPS'));
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// LIVE SEARCH (shared)
-// ═══════════════════════════════════════════════════════════════════════════════
-function liveSearch(inputId, dropId, onPick){
+// ═══════════════ ELEVATION ══════════════════════════════════════════════════════
+function fetchEle(idx,lat,lon){
+  fetch(`https://api.open-elevation.com/api/v1/lookup?locations=${lat},${lon}`)
+  .then(r=>r.json())
+  .then(d=>{if(d.results?.[0]){waypoints[idx].ele=d.results[0].elevation;renderPoiTable();}})
+  .catch(()=>{});
+}
+
+// ═══════════════ LIVE SEARCH ════════════════════════════════════════════════════
+function liveSearch(inputId,dropId,onPick){
   clearTimeout(searchTimers[inputId]);
   searchTimers[inputId]=setTimeout(()=>{
     const q=document.getElementById(inputId).value.trim();
@@ -685,9 +604,7 @@ function liveSearch(inputId, dropId, onPick){
       if(!d.length){dd.style.display='none';return;}
       dd.innerHTML='';
       d.forEach(r=>{
-        const div=document.createElement('div');
-        div.className='si';
-        div.textContent=r.display_name;
+        const div=document.createElement('div');div.className='si';div.textContent=r.display_name;
         div.onclick=()=>{
           document.getElementById(inputId).value=r.display_name;
           closeDrop(dropId);
@@ -699,59 +616,41 @@ function liveSearch(inputId, dropId, onPick){
     }).catch(()=>{});
   },320);
 }
-
 function closeDrop(id){const el=document.getElementById(id);if(el)el.style.display='none';}
 
-// add POI from search bar
 function addPoiFromSearch(){
-  const q=document.getElementById('poi-search').value.trim();
-  if(!q) return;
+  const q=document.getElementById('poi-search').value.trim(); if(!q)return;
   fetch('https://nominatim.openstreetmap.org/search?format=json&limit=1&q='+encodeURIComponent(q),
     {headers:{'Accept-Language':'it'}})
-  .then(r=>r.json())
-  .then(d=>{
+  .then(r=>r.json()).then(d=>{
     if(!d.length){showToast('Nessun risultato');return;}
-    const r=d[0];
-    waypoints.push({name:r.display_name,lat:+r.lat,lon:+r.lon,ele:null,sel:true});
-    fetchEle(waypoints.length-1,+r.lat,+r.lon);
-    map.setView([r.lat,r.lon],14);
+    waypoints.push({name:d[0].display_name,lat:+d[0].lat,lon:+d[0].lon,ele:null,sel:true});
+    fetchEle(waypoints.length-1,+d[0].lat,+d[0].lon);
+    map1.flyTo({center:[+d[0].lon,+d[0].lat],zoom:14});
     render(); showToast('POI aggiunto ✓');
   }).catch(()=>showToast('Errore ricerca'));
 }
 
-// wire up live search on poi-search to add on pick
 document.getElementById('poi-search').addEventListener('input',function(){
   liveSearch('poi-search','poi-sdrop',(name,lat,lon)=>{
     waypoints.push({name,lat,lon,ele:null,sel:true});
     fetchEle(waypoints.length-1,lat,lon);
-    map.setView([lat,lon],14);
+    map1.flyTo({center:[lon,lat],zoom:14});
     render(); showToast('POI aggiunto ✓');
     document.getElementById('poi-search').value='';
   });
 });
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// ELEVATION FETCH
-// ═══════════════════════════════════════════════════════════════════════════════
-function fetchEle(idx,lat,lon){
-  fetch(`https://api.open-elevation.com/api/v1/lookup?locations=${lat},${lon}`)
-  .then(r=>r.json())
-  .then(d=>{if(d.results&&d.results[0]){waypoints[idx].ele=d.results[0].elevation;renderPoiTable();}})
-  .catch(()=>{});
-}
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// IMPORT GPX
-// ═══════════════════════════════════════════════════════════════════════════════
+// ═══════════════ IMPORT / EXPORT GPX ════════════════════════════════════════════
 document.getElementById('poi-file-input').addEventListener('change',function(e){
-  parseGPXFile(e.target.files[0],true,false);this.value='';
+  parseGPXFile(e.target.files[0],true,true); this.value='';
 });
 document.getElementById('trk-file-input').addEventListener('change',function(e){
-  parseGPXFile(e.target.files[0],false,true);this.value='';
+  parseGPXFile(e.target.files[0],false,true); this.value='';
 });
 
 function parseGPXFile(file,importWp,importTrk){
-  if(!file) return;
+  if(!file)return;
   const reader=new FileReader();
   reader.onload=function(){
     const xml=new DOMParser().parseFromString(reader.result,'text/xml');
@@ -764,40 +663,52 @@ function parseGPXFile(file,importWp,importTrk){
         waypoints.push({name,lat,lon,ele,sel:true}); wc++;
       }
     }
-    if(importWp||importTrk){
+    if(importTrk){
       for(const trk of xml.getElementsByTagName('trk')){
-        importTrack(trk.querySelector('name')?.textContent||file.name.replace('.gpx',''),trk);tc++;
+        importTrack(trk.querySelector('name')?.textContent||file.name.replace('.gpx',''),trk); tc++;
       }
     }
-    if(wc>0) map.fitBounds(L.latLngBounds(waypoints.map(w=>[w.lat,w.lon])),{padding:[20,20]});
+    if(wc>0){
+      const lngs=waypoints.map(w=>w.lon),lats=waypoints.map(w=>w.lat);
+      map1.fitBounds([[Math.min(...lngs),Math.min(...lats)],[Math.max(...lngs),Math.max(...lats)]],{padding:40});
+    }
     render();
     showToast(`${wc} WP + ${tc} tracce importati ✓`);
   };
   reader.readAsText(file);
 }
 
-function importTrack(name, trkEl){
+function importTrack(name,trkEl){
   const pts=[];
   for(const pt of trkEl.getElementsByTagName('trkpt')){
-    const lat=+pt.getAttribute('lat'),lon=+pt.getAttribute('lon');
-    const ele=pt.querySelector('ele')?+pt.querySelector('ele').textContent:null;
-    pts.push({lat,lon,ele});
+    pts.push({lat:+pt.getAttribute('lat'),lon:+pt.getAttribute('lon'),
+      ele:pt.querySelector('ele')?+pt.querySelector('ele').textContent:null});
   }
-  if(!pts.length) return;
+  if(!pts.length)return;
   const len=calcLen(pts);
-  // draw on BOTH maps
-  const layer1=L.polyline(pts.map(p=>[p.lat,p.lon]),{color:'#e03030',weight:3,opacity:.85}).addTo(map);
-  const layer2=L.polyline(pts.map(p=>[p.lat,p.lon]),{color:'#e03030',weight:3,opacity:.85}).addTo(trkMap);
-  trkMap.fitBounds(layer2.getBounds(),{padding:[20,20]});
-  tracks.push({name,pts,len,layer1,layer2});
+  const idx=tracks.length;
+  tracks.push({name,pts,len});
+  addTrackToMap2(idx);
   renderTrackTable();
+}
+
+function addTrackToMap2(idx){
+  const t=tracks[idx];
+  const srcId=`trk-src-${idx}`, layId=`trk-lay-${idx}`;
+  const geojson={type:'Feature',geometry:{type:'LineString',coordinates:t.pts.map(p=>[p.lon,p.lat])}};
+  const doAdd=()=>{
+    if(map2.getSource(srcId)) map2.removeLayer(layId),map2.removeSource(srcId);
+    map2.addSource(srcId,{type:'geojson',data:geojson});
+    map2.addLayer({id:layId,type:'line',source:srcId,paint:{'line-color':'#e03030','line-width':3,'line-opacity':.85}});
+    const lngs=t.pts.map(p=>p.lon),lats=t.pts.map(p=>p.lat);
+    map2.fitBounds([[Math.min(...lngs),Math.min(...lats)],[Math.max(...lngs),Math.max(...lats)]],{padding:30});
+  };
+  if(map2Ready) doAdd(); else map2PendingLayers.push(doAdd);
 }
 
 function renderTrackTable(){
   const tb=document.getElementById('trk-body');
-  if(!tracks.length){
-    tb.innerHTML='<tr><td colspan="5" class="empty">Nessuna traccia importata.</td></tr>';return;
-  }
+  if(!tracks.length){tb.innerHTML='<tr><td colspan="5" class="empty">Nessuna traccia importata.</td></tr>';return;}
   tb.innerHTML=tracks.map((t,i)=>`<tr>
     <td class="name-cell" title="${escAttr(t.name)}">${escH(t.name)}</td>
     <td class="mono">${fmtDist(t.len)}</td>
@@ -808,20 +719,24 @@ function renderTrackTable(){
 }
 
 function delTrack(i){
-  map.removeLayer(tracks[i].layer1);
-  trkMap.removeLayer(tracks[i].layer2);
-  tracks.splice(i,1);renderTrackTable();
+  const srcId=`trk-src-${i}`,layId=`trk-lay-${i}`;
+  if(map2.getLayer(layId)) map2.removeLayer(layId);
+  if(map2.getSource(srcId)) map2.removeSource(srcId);
+  tracks.splice(i,1);
+  // rebuild remaining layers with new indices
+  renderTrackTable();
 }
 function clearTracks(){
-  if(!tracks.length) return;
-  if(!confirm(`Rimuovere tutte le ${tracks.length} tracce?`)) return;
-  tracks.forEach(t=>{map.removeLayer(t.layer1);trkMap.removeLayer(t.layer2);});
-  tracks=[];renderTrackTable();
+  if(!tracks.length)return;
+  if(!confirm(`Rimuovere tutte le ${tracks.length} tracce?`))return;
+  tracks.forEach((_,i)=>{
+    const srcId=`trk-src-${i}`,layId=`trk-lay-${i}`;
+    if(map2.getLayer(layId)) map2.removeLayer(layId);
+    if(map2.getSource(srcId)) map2.removeSource(srcId);
+  });
+  tracks=[]; renderTrackTable();
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// EXPORT GPX (waypoints)
-// ═══════════════════════════════════════════════════════════════════════════════
 function exportGPX(){
   const exp=[];
   if(gpsPos&&gpsPos.sel) exp.push({name:'Posizione GPS',lat:gpsPos.lat,lon:gpsPos.lon,ele:gpsPos.alt});
@@ -830,92 +745,78 @@ function exportGPX(){
   let xml='<?xml version="1.0" encoding="UTF-8"?>\n<gpx version="1.1" creator="PAM" xmlns="http://www.topografix.com/GPX/1/1">\n';
   exp.forEach(w=>{
     const el=w.ele!=null?`<ele>${w.ele}</ele>`:'';
-    xml+=`  <wpt lat="${w.lat}" lon="${w.lon}">${el}<n>${escH(w.name)}</n></wpt>\n`;
+    xml+=`  <wpt lat="${w.lat}" lon="${w.lon}">${el}<name>${escH(w.name)}</name></wpt>\n`;
   });
   xml+='</gpx>';
   dlBlob(xml,'POI_export.gpx','application/gpx+xml');
   showToast(`${exp.length} POI esportati ✓`);
 }
 function clearAll(){
-  if(!waypoints.length&&!gpsPos) return;
-  if(!confirm('Rimuovere tutti i waypoint?')) return;
+  if(!waypoints.length&&!gpsPos)return;
+  if(!confirm('Rimuovere tutti i waypoint?'))return;
   waypoints=[];gpsPos=null;
-  if(gpsMarker){map.removeLayer(gpsMarker);gpsMarker=null;}
+  if(gpsMarker1){gpsMarker1.remove();gpsMarker1=null;}
   render();
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// DRAW TRACK (schermata Crea Traccia — stile gpx.studio)
-// ═══════════════════════════════════════════════════════════════════════════════
+// ═══════════════ DRAW TRACK (map3) ══════════════════════════════════════════════
+// Mapbox GL sources/layers for the drawn route
+const DRAW_LINE_SRC  = 'draw-route-src';
+const DRAW_LINE_LAY  = 'draw-route-lay';
 
-// draw state
-let drawNodes    = [];   // anchor points clicked by user: [{lat,lon,ele}]
-let drawSegments = [];   // resolved polyline segments: [[{lat,lon,ele}], ...]
-let drawSegMode  = 'foot'; // 'foot' | 'driving' | 'line'
-let drawPolylines= [];   // Leaflet polyline layers for each segment
-let drawMarkers  = [];   // Leaflet markers for each anchor
-let drawPending  = false;// true while fetching a segment
-
-// icons
-const PIN_DRAW_START = makePin('#3fb950', 18);
-const PIN_DRAW_NODE  = makePin('#e03030', 13);
-const PIN_DRAW_WP    = makePin('#3b82f6', 13);  // waypoint blu sulla mappa traccia
-
-let drawWpMarkers = [];  // marker blu dei waypoint sulla rmap
-
-// switch to topo tile on entering route screen
-function showScreen(s){
-  ['poi','trk','route'].forEach(id=>{
-    document.getElementById('scr-'+id).classList.toggle('active',id===s);
-    document.getElementById('nb-'+id).classList.toggle('active',id===s);
-  });
-  if(s==='poi') setTimeout(()=>map.invalidateSize(),60);
-  if(s==='trk') setTimeout(()=>trkMap.invalidateSize(),60);
-  if(s==='route'){
-    setTimeout(()=>{
-      rmap.invalidateSize();
-      drawRenderWpMarkers();
-      // auto-zoom to WP extent if any selected waypoints
-      const sel=waypoints.filter(w=>w.sel);
-      if(sel.length>0){
-        const bounds=L.latLngBounds(sel.map(w=>[w.lat,w.lon]));
-        rmap.fitBounds(bounds,{padding:[30,30],maxZoom:14});
-      }
-    },80);
+function initDrawLayers(){
+  if(!map3DrawReady) return;
+  // add empty source + layer for the route polyline
+  if(!map3.getSource(DRAW_LINE_SRC)){
+    map3.addSource(DRAW_LINE_SRC,{type:'geojson',data:{type:'Feature',geometry:{type:'LineString',coordinates:[]}}});
+    map3.addLayer({id:DRAW_LINE_LAY,type:'line',source:DRAW_LINE_SRC,
+      paint:{'line-color':'#e03030','line-width':3,'line-opacity':.9}});
   }
 }
 
-// Render waypoints as blue markers on the draw map
+let drawNodeMB = [];  // mapbox Marker objects for each node
+
 function drawRenderWpMarkers(){
-  drawWpMarkers.forEach(m=>rmap.removeLayer(m));
-  drawWpMarkers=[];
+  drawWpMarkers.forEach(m=>m.remove()); drawWpMarkers=[];
   waypoints.filter(w=>w.sel).forEach(w=>{
-    const m=L.marker([w.lat,w.lon],{icon:PIN_DRAW_WP})
-      .addTo(rmap)
-      .bindPopup(`<b style="color:#3b82f6">📌 ${escH(w.name)}</b>${w.ele!=null?'<br>'+Math.round(w.ele)+' m':''}<br><small>Clicca per aggiungere alla traccia</small>`);
-    // clicking a blue WP marker adds it as next track node
-    m.on('click', e=>{
-      L.DomEvent.stopPropagation(e);
-      if(drawPending){ showToast('Attendi il calcolo del segmento…'); return; }
-      drawAddNode(w.lat, w.lon);
+    const el=makeDot('#3b82f6',14);
+    const popup=new mapboxgl.Popup({offset:10,closeButton:false})
+      .setHTML(`<b style="color:#3b82f6">📌 ${escH(w.name)}</b>${w.ele!=null?'<br>'+Math.round(w.ele)+' m':''}<br><small>Clicca per aggiungere alla traccia</small>`);
+    const m=new mapboxgl.Marker({element:el}).setLngLat([w.lon,w.lat]).addTo(map3);
+    el.addEventListener('click', e=>{
+      e.stopPropagation();
+      if(drawPending){showToast('Attendi…');return;}
+      drawAddNode(w.lat,w.lon);
     });
     drawWpMarkers.push(m);
   });
 }
 
-// segment mode buttons
+map3.on('click', e=>{
+  if(drawPending) return;
+  drawAddNode(e.lngLat.lat, e.lngLat.lng);
+});
+
+// segment mode
 function setSegMode(mode){
   drawSegMode=mode;
-  document.getElementById('seg-walk').classList.toggle('active', mode==='foot');
   document.getElementById('seg-walk').className='mode-btn walk'+(mode==='foot'?' active':'');
-  document.getElementById('seg-drive').classList.toggle('active', mode==='driving');
   document.getElementById('seg-drive').className='mode-btn drive'+(mode==='driving'?' active':'');
-  document.getElementById('seg-line').classList.toggle('active', mode==='line');
   document.getElementById('seg-line').className='mode-btn'+(mode==='line'?' active line-mode':'');
 }
 
-// search bar: set start point
-document.getElementById('draw-search').addEventListener('input', function(){
+function drawSearchGo(){
+  const q=document.getElementById('draw-search').value.trim(); if(!q)return;
+  fetch('https://nominatim.openstreetmap.org/search?format=json&limit=1&q='+encodeURIComponent(q),
+    {headers:{'Accept-Language':'it'}})
+  .then(r=>r.json()).then(d=>{
+    if(!d.length){showToast('Nessun risultato');return;}
+    drawAddStart(+d[0].lat,+d[0].lon);
+    document.getElementById('draw-search').value=d[0].display_name;
+  }).catch(()=>showToast('Errore ricerca'));
+}
+
+document.getElementById('draw-search').addEventListener('input',function(){
   liveSearch('draw-search','draw-sdrop',(name,lat,lon)=>{
     closeDrop('draw-sdrop');
     document.getElementById('draw-search').value=name;
@@ -923,256 +824,164 @@ document.getElementById('draw-search').addEventListener('input', function(){
   });
 });
 
-function drawSearchGo(){
-  const q=document.getElementById('draw-search').value.trim();
-  if(!q) return;
-  fetch('https://nominatim.openstreetmap.org/search?format=json&limit=1&q='+encodeURIComponent(q),
-    {headers:{'Accept-Language':'it'}})
-  .then(r=>r.json())
-  .then(d=>{
-    if(!d.length){showToast('Nessun risultato');return;}
-    drawAddStart(+d[0].lat,+d[0].lon);
-    document.getElementById('draw-search').value=d[0].display_name;
-  }).catch(()=>showToast('Errore ricerca'));
-}
-
 function drawUseGPS(){
   if(!gpsPos){showToast('Prima acquisisci il GPS nella schermata Waypoint');return;}
   drawAddStart(gpsPos.lat,gpsPos.lon);
   showToast('GPS impostato come partenza ✓');
 }
-
-// Set/reset start point (only if no nodes yet, else just add node)
 function drawAddStart(lat,lon){
-  if(drawNodes.length===0){
-    drawAddNode(lat,lon);
-    rmap.setView([lat,lon],14);
-  } else {
-    // Already drawing — treat as next point
-    drawAddNode(lat,lon);
-  }
+  drawAddNode(lat,lon);
+  if(drawNodes.length===1) map3.flyTo({center:[lon,lat],zoom:13});
 }
 
-// Main: add a node, compute segment from previous node
 async function drawAddNode(lat,lon){
   if(drawPending) return;
-  const ele = await fetchEleVal(lat,lon);
-  const node = {lat,lon,ele};
+  const ele=await fetchEleVal(lat,lon);
+  const node={lat,lon,ele};
   drawNodes.push(node);
+  const idx=drawNodes.length-1;
 
-  const idx = drawNodes.length-1;
-  const icon = idx===0 ? PIN_DRAW_START : PIN_DRAW_NODE;
-  const m = L.marker([lat,lon],{icon}).addTo(rmap)
-    .bindPopup(`<b>${idx===0?'▶ Partenza':'Punto '+idx}</b><br>${lat.toFixed(5)}, ${lon.toFixed(5)}${ele!=null?'<br>'+Math.round(ele)+' m':''}`);
-  drawMarkers.push(m);
+  // add Mapbox marker
+  const color=idx===0?'#3fb950':'#e03030';
+  const size=idx===0?18:13;
+  const el=makeDot(color,size,'default');
+  const popup=new mapboxgl.Popup({offset:10,closeButton:false})
+    .setHTML(`<b>${idx===0?'▶ Partenza':'Punto '+idx}</b><br>${lat.toFixed(5)}, ${lon.toFixed(5)}${ele!=null?'<br>'+Math.round(ele)+' m':''}`);
+  const m=new mapboxgl.Marker({element:el}).setLngLat([lon,lat]).addTo(map3);
+  drawNodeMB.push(m);
 
-  if(idx===0){
-    drawSegments.push([]); // dummy segment placeholder for start
-    drawUpdateStatus();
-    return;
-  }
+  if(idx===0){ drawSegments.push([]); drawUpdateStatus(); return; }
 
-  // compute segment from previous node to this one
-  const prev = drawNodes[idx-1];
+  // compute segment
   drawPending=true;
-  drawUpdateStatus('⏳ Calcolo segmento…');
-
+  const prev=drawNodes[idx-1];
   let segPts;
-  if(drawSegMode==='line'){
-    // straight line — interpolate elevation
-    segPts = drawLineSeg(prev, node);
-  } else {
-    segPts = await drawRouteSeg(prev, node, drawSegMode);
-    if(!segPts) segPts = drawLineSeg(prev, node); // fallback to line
-  }
-
-  // fetch elevation for routed segment points (batch, max 50 pts sampled)
-  segPts = await enrichElevation(segPts);
-
+  if(drawSegMode==='line') segPts=drawLineSeg(prev,node);
+  else { segPts=await drawRouteSeg(prev,node,drawSegMode)||drawLineSeg(prev,node); }
+  segPts=await enrichElevation(segPts);
   drawSegments.push(segPts);
   drawPending=false;
 
-  // draw polyline for this segment
-  const color = drawSegMode==='line'?'#58a6ff': drawSegMode==='foot'?'#e03030':'#e03030';
-  const dash  = drawSegMode==='line'?'6,4':null;
-  const pl = L.polyline(segPts.map(p=>[p.lat,p.lon]),{
-    color, weight:3, opacity:.9, dashArray:dash
-  }).addTo(rmap);
-  drawPolylines.push(pl);
-
-  // fit bounds
-  const allPts = drawNodes.map(n=>[n.lat,n.lon]);
-  if(allPts.length>1) rmap.fitBounds(L.latLngBounds(allPts),{padding:[24,24],maxZoom:16});
-
+  // update the route line on map3
+  redrawRoute();
   drawUpdateStatus();
 }
 
-function drawLineSeg(a,b){
-  // 10-point interpolation
-  const pts=[];
-  for(let i=0;i<=10;i++){
-    const f=i/10;
-    pts.push({lat:a.lat+(b.lat-a.lat)*f, lon:a.lon+(b.lon-a.lon)*f, ele:null});
-  }
-  return pts;
+function redrawRoute(){
+  if(!map3DrawReady) return;
+  const coords=[];
+  drawNodes.forEach((n,i)=>{
+    if(i===0){ coords.push([n.lon,n.lat]); return; }
+    const seg=drawSegments[i]||[];
+    if(seg.length>1) seg.forEach(p=>coords.push([p.lon,p.lat]));
+    else coords.push([n.lon,n.lat]);
+  });
+  const src=map3.getSource(DRAW_LINE_SRC);
+  if(src) src.setData({type:'Feature',geometry:{type:'LineString',coordinates:coords}});
 }
 
+function drawLineSeg(a,b){
+  const pts=[];
+  for(let i=0;i<=10;i++){const f=i/10;pts.push({lat:a.lat+(b.lat-a.lat)*f,lon:a.lon+(b.lon-a.lon)*f,ele:null});}
+  return pts;
+}
 async function drawRouteSeg(a,b,profile){
   try{
     const url=`https://router.project-osrm.org/route/v1/${profile}/${a.lon},${a.lat};${b.lon},${b.lat}?overview=full&geometries=geojson`;
-    const res=await fetch(url);
-    const data=await res.json();
-    if(data.code!=='Ok'||!data.routes?.length) return null;
+    const res=await fetch(url); const data=await res.json();
+    if(data.code!=='Ok'||!data.routes?.length)return null;
     return data.routes[0].geometry.coordinates.map(c=>({lat:c[1],lon:c[0],ele:null}));
-  } catch(e){ return null; }
+  }catch(e){return null;}
 }
-
 async function fetchEleVal(lat,lon){
   try{
     const r=await fetch(`https://api.open-elevation.com/api/v1/lookup?locations=${lat},${lon}`);
-    const d=await r.json();
-    return d.results?.[0]?.elevation??null;
-  } catch(e){ return null; }
+    const d=await r.json(); return d.results?.[0]?.elevation??null;
+  }catch(e){return null;}
 }
-
-// Batch elevation for segment — sample at most 50 points to avoid API limits
 async function enrichElevation(pts){
-  if(!pts.length) return pts;
-  const step = Math.max(1, Math.ceil(pts.length/50));
-  const sample = pts.filter((_,i)=>i%step===0 || i===pts.length-1);
+  if(!pts.length)return pts;
+  const step=Math.max(1,Math.ceil(pts.length/50));
+  const sample=pts.filter((_,i)=>i%step===0||i===pts.length-1);
   try{
-    const locStr = sample.map(p=>`${p.lat},${p.lon}`).join('|');
-    const r = await fetch(`https://api.open-elevation.com/api/v1/lookup?locations=${locStr}`);
-    const d = await r.json();
-    if(!d.results) return pts;
-    // interpolate elevation back to all points
+    const locStr=sample.map(p=>`${p.lat},${p.lon}`).join('|');
+    const r=await fetch(`https://api.open-elevation.com/api/v1/lookup?locations=${locStr}`);
+    const d=await r.json(); if(!d.results)return pts;
     let si=0;
-    pts.forEach((p,i)=>{
-      if(i%step===0 || i===pts.length-1){
-        p.ele = d.results[si]?.elevation??null;
-        si++;
-      }
-    });
-    // linear interp for points between samples
+    pts.forEach((p,i)=>{if(i%step===0||i===pts.length-1){p.ele=d.results[si]?.elevation??null;si++;}});
     for(let i=0;i<pts.length;i++){
       if(pts[i].ele===null){
-        let prev=i-1; while(prev>=0&&pts[prev].ele===null) prev--;
-        let next=i+1; while(next<pts.length&&pts[next].ele===null) next++;
-        if(prev>=0&&next<pts.length){
-          const f=(i-prev)/(next-prev);
-          pts[i].ele=pts[prev].ele+(pts[next].ele-pts[prev].ele)*f;
-        }
+        let prev=i-1;while(prev>=0&&pts[prev].ele===null)prev--;
+        let next=i+1;while(next<pts.length&&pts[next].ele===null)next++;
+        if(prev>=0&&next<pts.length){const f=(i-prev)/(next-prev);pts[i].ele=pts[prev].ele+(pts[next].ele-pts[prev].ele)*f;}
       }
     }
-  } catch(e){}
+  }catch(e){}
   return pts;
 }
 
 function drawUndo(){
-  if(drawNodes.length===0){showToast('Nessun punto da annullare');return;}
+  if(!drawNodes.length){showToast('Nessun punto da annullare');return;}
   drawNodes.pop();
-  const m=drawMarkers.pop(); if(m) rmap.removeLayer(m);
-  if(drawSegments.length>0){
-    drawSegments.pop();
-    const pl=drawPolylines.pop(); if(pl) rmap.removeLayer(pl);
-  }
-  drawUpdateStatus();
+  const m=drawNodeMB.pop(); if(m)m.remove();
+  if(drawSegments.length>0) drawSegments.pop();
+  redrawRoute(); drawUpdateStatus();
   showToast('Ultimo punto annullato');
 }
-
 function drawClear(){
-  if(drawNodes.length===0) return;
-  if(!confirm('Cancellare tutta la traccia?')) return;
-  drawMarkers.forEach(m=>rmap.removeLayer(m)); drawMarkers=[];
-  drawPolylines.forEach(p=>rmap.removeLayer(p)); drawPolylines=[];
-  drawNodes=[]; drawSegments=[];
-  drawPending=false;
+  if(!drawNodes.length)return;
+  if(!confirm('Cancellare tutta la traccia?'))return;
+  drawNodeMB.forEach(m=>m.remove()); drawNodeMB=[];
+  drawNodes=[]; drawSegments=[]; drawPending=false;
   document.getElementById('draw-search').value='';
-  drawUpdateStatus();
+  redrawRoute(); drawUpdateStatus();
   showToast('Traccia azzerata');
 }
 
-function drawUpdateStatus(msg){
-  // aggiorna info bar
-  const allPts = drawSegments.flat();
-  const n = drawNodes.length;
-  const dist = n>1 ? calcLen(allPts) : 0;
-
-  let gain=0, loss=0;
+function drawUpdateStatus(){
+  const allPts=drawSegments.flat();
+  const n=drawNodes.length;
+  const dist=n>1?calcLen(allPts):0;
+  let gain=0,loss=0;
   for(let i=1;i<allPts.length;i++){
-    if(allPts[i].ele==null||allPts[i-1].ele==null) continue;
+    if(allPts[i].ele==null||allPts[i-1].ele==null)continue;
     const diff=allPts[i].ele-allPts[i-1].ele;
-    if(diff>0.5) gain+=diff;        // soglia 0.5m per filtrare rumore GPS
-    else if(diff<-0.5) loss+=Math.abs(diff);
+    if(diff>0.5)gain+=diff; else if(diff<-0.5)loss+=Math.abs(diff);
   }
-
-  document.getElementById('di-pts').textContent = n>0 ? `${n} pt` : '— pt';
-  document.getElementById('di-len').textContent = n>1 ? fmtDist(dist) : '— km';
-  document.getElementById('di-dp').textContent  = n>1 ? `D+ ${Math.round(gain)} m` : 'D+ —';
-  document.getElementById('di-dm').textContent  = n>1 ? `D− ${Math.round(loss)} m` : 'D− —';
+  document.getElementById('di-pts').textContent=n>0?`${n} pt`:'— pt';
+  document.getElementById('di-len').textContent=n>1?fmtDist(dist):'—';
+  document.getElementById('di-dp').textContent=n>1?`D+ ${Math.round(gain)} m`:'D+ —';
+  document.getElementById('di-dm').textContent=n>1?`D− ${Math.round(loss)} m`:'D− —';
 }
-
-// rmap click → add draw node
-rmap.on('click', e=>{
-  if(drawPending) return;
-  drawAddNode(e.latlng.lat, e.latlng.lng);
-});
 
 async function drawExport(){
   if(drawNodes.length<2){showToast('Aggiungi almeno 2 punti');return;}
   showToast('⏳ Preparazione GPX…');
-
-  // flatten all segment points
-  const allPts=[];
-  // start node
-  allPts.push(drawNodes[0]);
+  const allPts=[drawNodes[0]];
   for(let i=1;i<drawNodes.length;i++){
     const seg=drawSegments[i]||[];
-    if(seg.length>1) allPts.push(...seg.slice(1));
-    else allPts.push(drawNodes[i]);
+    if(seg.length>1)allPts.push(...seg.slice(1)); else allPts.push(drawNodes[i]);
   }
-
   const today=new Date();
   const yy=String(today.getFullYear()).slice(2);
   const mm=String(today.getMonth()+1).padStart(2,'0');
   const dd=String(today.getDate()).padStart(2,'0');
-  const trkName=(document.getElementById("draw-name").value.trim()||"traccia");
+  const trkName=(document.getElementById('draw-name').value.trim()||'traccia');
   const safeName=trkName.replace(/[^a-zA-Z0-9_\-àèéìòùÀÈÉÌÒÙ ]/g,'_').replace(/ +/g,'_');
   const fileName=`${safeName}_${yy}${mm}${dd}`;
-
   let xml='<?xml version="1.0" encoding="UTF-8"?>\n';
   xml+=`<gpx version="1.1" creator="PAM" xmlns="http://www.topografix.com/GPX/1/1">\n`;
-  xml+=`  <trk><name>${trkName}</name><trkseg>\n`;
+  xml+=`  <trk><name>${escH(trkName)}</name><trkseg>\n`;
   allPts.forEach(p=>{
     const el=p.ele!=null?`<ele>${p.ele.toFixed(1)}</ele>`:'';
     xml+=`    <trkpt lat="${p.lat.toFixed(6)}" lon="${p.lon.toFixed(6)}">${el}</trkpt>\n`;
   });
   xml+=`  </trkseg></trk>\n</gpx>`;
   dlBlob(xml,fileName+'.gpx','application/gpx+xml');
-  showToast(`Esportato: ${fileName}.gpx (${allPts.length} punti) ✓`);
+  showToast(`Esportato: ${fileName}.gpx ✓`);
 }
 
-// keep old stubs so nothing else breaks
-function setMode(m){}
-function calcRoute(){}
-function exportRouteGPX(){}
-function addAllWpToRoute(){}
-function clearRouteWp(){}
-function removeRouteWp(){}
-function renderWpOrderList(){}
-function renderRouteWpMarkers(){}
-function toggleRouteViaPick(){}
-function startRouteMapPick(){}
-function stopRouteMapPick(){ }
-function onPickerModeChange(){}
-function refreshPickerWpSelects(){}
-function applyWpPicker(){}
-function setRouteEndpoint(){}
-function resolvePickerSearch(){}
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// ELEVATION MODAL
-// ═══════════════════════════════════════════════════════════════════════════════
+// ═══════════════ ELEVATION MODAL ════════════════════════════════════════════════
 function openElev(i){
   const t=tracks[i];
   document.getElementById('modal-title').textContent=t.name;
@@ -1188,12 +997,12 @@ function drawElevProfile(pts){
   const canvas=document.getElementById('elev-canvas');
   const DPR=window.devicePixelRatio||1;
   const W=canvas.offsetWidth,H=canvas.offsetHeight;
-  canvas.width=W*DPR; canvas.height=H*DPR;
-  const ctx=canvas.getContext('2d'); ctx.scale(DPR,DPR);
+  canvas.width=W*DPR;canvas.height=H*DPR;
+  const ctx=canvas.getContext('2d');ctx.scale(DPR,DPR);
   const eles=pts.map(p=>p.ele),minE=Math.min(...eles),maxE=Math.max(...eles);
   const pad={t:16,b:28,l:44,r:12},gW=W-pad.l-pad.r,gH=H-pad.t-pad.b;
-  ctx.fillStyle='#161b22'; ctx.fillRect(0,0,W,H);
-  ctx.strokeStyle='rgba(48,54,61,.6)'; ctx.lineWidth=1;
+  ctx.fillStyle='#161b22';ctx.fillRect(0,0,W,H);
+  ctx.strokeStyle='rgba(48,54,61,.6)';ctx.lineWidth=1;
   for(let s=0;s<=4;s++){
     const y=pad.t+gH*(1-s/4);
     ctx.beginPath();ctx.moveTo(pad.l,y);ctx.lineTo(pad.l+gW,y);ctx.stroke();
@@ -1201,19 +1010,19 @@ function drawElevProfile(pts){
     ctx.fillText(Math.round(minE+(maxE-minE)*(s/4))+'m',pad.l-4,y+3.5);
   }
   let cum=[0];
-  for(let i=1;i<pts.length;i++) cum.push(cum[i-1]+haversDist(pts[i-1].lat,pts[i-1].lon,pts[i].lat,pts[i].lon));
+  for(let i=1;i<pts.length;i++)cum.push(cum[i-1]+haversDist(pts[i-1].lat,pts[i-1].lon,pts[i].lat,pts[i].lon));
   const tot=cum[cum.length-1];
-  const toX=d=>pad.l+gW*(d/tot), toY=e=>pad.t+gH*(1-(e-minE)/(maxE-minE||1));
+  const toX=d=>pad.l+gW*(d/tot),toY=e=>pad.t+gH*(1-(e-minE)/(maxE-minE||1));
   const gr=ctx.createLinearGradient(0,pad.t,0,pad.t+gH);
-  gr.addColorStop(0,'rgba(88,166,255,.35)'); gr.addColorStop(1,'rgba(88,166,255,.02)');
-  ctx.beginPath(); ctx.moveTo(toX(0),toY(pts[0].ele));
+  gr.addColorStop(0,'rgba(88,166,255,.35)');gr.addColorStop(1,'rgba(88,166,255,.02)');
+  ctx.beginPath();ctx.moveTo(toX(0),toY(pts[0].ele));
   pts.forEach((p,i)=>ctx.lineTo(toX(cum[i]),toY(p.ele)));
-  ctx.lineTo(toX(tot),pad.t+gH); ctx.lineTo(toX(0),pad.t+gH); ctx.closePath();
-  ctx.fillStyle=gr; ctx.fill();
-  ctx.beginPath(); ctx.moveTo(toX(0),toY(pts[0].ele));
+  ctx.lineTo(toX(tot),pad.t+gH);ctx.lineTo(toX(0),pad.t+gH);ctx.closePath();
+  ctx.fillStyle=gr;ctx.fill();
+  ctx.beginPath();ctx.moveTo(toX(0),toY(pts[0].ele));
   pts.forEach((p,i)=>ctx.lineTo(toX(cum[i]),toY(p.ele)));
-  ctx.strokeStyle='#58a6ff'; ctx.lineWidth=2; ctx.lineJoin='round'; ctx.stroke();
-  ctx.fillStyle='#8b949e'; ctx.textAlign='center'; ctx.font='9px IBM Plex Mono,monospace';
+  ctx.strokeStyle='#58a6ff';ctx.lineWidth=2;ctx.lineJoin='round';ctx.stroke();
+  ctx.fillStyle='#8b949e';ctx.textAlign='center';ctx.font='9px IBM Plex Mono,monospace';
   [0,.25,.5,.75,1].forEach(f=>{
     const x=pad.l+gW*f,d=tot*f;
     ctx.fillText(d>=1000?(d/1000).toFixed(1)+'km':Math.round(d)+'m',x,H-pad.b+14);
@@ -1227,9 +1036,7 @@ function drawElevProfile(pts){
      <div class="stat-box"><div class="stat-label">↓ Discesa</div><div class="stat-val">-${Math.round(loss)} m</div></div>`;
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// UTILS
-// ═══════════════════════════════════════════════════════════════════════════════
+// ═══════════════ UTILS ══════════════════════════════════════════════════════════
 function haversDist(lat1,lon1,lat2,lon2){
   const R=6371000,r=Math.PI/180,dLat=(lat2-lat1)*r,dLon=(lon2-lon1)*r;
   const a=Math.sin(dLat/2)**2+Math.cos(lat1*r)*Math.cos(lat2*r)*Math.sin(dLon/2)**2;
@@ -1242,7 +1049,7 @@ function escAttr(s){return escH(s).replace(/"/g,'&quot;');}
 function dlBlob(content,name,type){
   const a=document.createElement('a');
   a.href=URL.createObjectURL(new Blob([content],{type}));
-  a.download=name; a.click();
+  a.download=name;a.click();
 }
 
 let toastTimer;
@@ -1251,25 +1058,18 @@ function showToast(msg){
   clearTimeout(toastTimer);toastTimer=setTimeout(()=>t.classList.remove('show'),2600);
 }
 
-// close dropdowns on outside click
 document.addEventListener('click',e=>{
   ['poi-sdrop','draw-sdrop'].forEach(id=>{
     const el=document.getElementById(id);
-    if(el&&el.style.display!=='none'&&!el.contains(e.target)){
-      const wrap=el.parentElement;
-      if(!wrap||!wrap.contains(e.target)) el.style.display='none';
-    }
+    if(el&&el.style.display!=='none'&&!el.parentElement?.contains(e.target))
+      el.style.display='none';
   });
 });
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// INIT
-// ═══════════════════════════════════════════════════════════════════════════════
+// ═══════════════ INIT ═══════════════════════════════════════════════════════════
 if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{});
-render();
-// init draw status on load
-setTimeout(()=>drawUpdateStatus(), 100);
+// render() is called after map1 'load' event
+drawUpdateStatus();
 </script>
-
 </body>
 </html>
