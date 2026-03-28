@@ -196,6 +196,10 @@ td.name-cell{max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:
   font-size:11px;font-weight:600;cursor:pointer;transition:all .15s;}
 .tile-btn.active{border-color:var(--accent);background:rgba(88,166,255,.15);color:var(--accent);}
 
+/* DRAW TRACK INFO BAR */
+.draw-stat{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--text-dim);
+  background:var(--surface3);border-radius:5px;padding:3px 7px;white-space:nowrap;}
+
 /* ELEVATION MODAL */
 #elev-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:9999;
   align-items:center;justify-content:center;padding:14px;}
@@ -263,10 +267,9 @@ canvas#elev-canvas{width:100%;height:200px;display:block;border-radius:var(--r);
     <!-- click on map toggle -->
     <button class="btn btn-sm" id="btn-mapclick" onclick="toggleMapClick()"
       title="Aggiungi WP cliccando sulla mappa">🖱 Mappa</button>
-    <!-- tile selector -->
     <div class="tile-toggle">
-      <button class="tile-btn active" data-tile="road" onclick="setTileType('road')">🚗</button>
-      <button class="tile-btn" data-tile="topo" onclick="setTileType('topo')">🥾</button>
+      <button class="tile-btn active" data-tile="road" onclick="setTileType('road')" title="Mappa stradale">🚗</button>
+      <button class="tile-btn" data-tile="topo" onclick="setTileType('topo')" title="Mappa escursionistica">🥾</button>
     </div>
   </div>
 
@@ -311,8 +314,8 @@ canvas#elev-canvas{width:100%;height:200px;display:block;border-radius:var(--r);
   <div class="topbar">
     <div class="logo">PAM · Tracce</div>
     <div class="tile-toggle">
-      <button class="tile-btn active" data-tile="road" onclick="setTileType('road')">🚗 Stradale</button>
-      <button class="tile-btn" data-tile="topo" onclick="setTileType('topo')">🥾 Topo</button>
+      <button class="tile-btn active" data-tile="road" onclick="setTileType('road')" title="Mappa stradale">🚗</button>
+      <button class="tile-btn" data-tile="topo" onclick="setTileType('topo')" title="Mappa escursionistica">🥾</button>
     </div>
   </div>
 
@@ -352,6 +355,23 @@ canvas#elev-canvas{width:100%;height:200px;display:block;border-radius:var(--r);
   <div class="route-layout">
 
 ```
+<!-- info panel: nome + stats traccia -->
+<div style="display:flex;align-items:center;gap:8px;padding:6px 10px;
+  background:var(--surface2);border-bottom:1px solid var(--border);flex-shrink:0;flex-wrap:wrap;">
+  <input id="draw-name" value="Nuova traccia"
+    style="background:var(--bg);border:1px solid var(--border);border-radius:var(--r);
+      color:var(--text);font-family:'Outfit',sans-serif;font-size:13px;font-weight:600;
+      padding:5px 9px;outline:none;min-width:120px;flex:1;max-width:220px;"
+    onfocus="this.style.borderColor='var(--accent)'"
+    onblur="this.style.borderColor='var(--border)'">
+  <div id="draw-info-bar" style="display:flex;gap:10px;flex-wrap:wrap;flex:1;">
+    <span class="draw-stat" id="di-pts">— pt</span>
+    <span class="draw-stat" id="di-len">— km</span>
+    <span class="draw-stat" id="di-dp" style="color:var(--accent2)">D+ —</span>
+    <span class="draw-stat" id="di-dm" style="color:var(--warn)">D− —</span>
+  </div>
+</div>
+
 <!-- toolbar -->
 <div class="route-config">
   <div class="route-row" style="flex-wrap:wrap;gap:6px;">
@@ -378,10 +398,6 @@ canvas#elev-canvas{width:100%;height:200px;display:block;border-radius:var(--r);
     <button class="btn btn-red btn-sm" onclick="drawClear()" title="Ricomincia da capo">🗑 Reset</button>
     <button class="btn btn-green btn-sm" onclick="drawExport()">⬇ Esporta GPX</button>
   </div>
-
-  <!-- status bar -->
-  <div id="draw-status" style="font-family:'IBM Plex Mono',monospace;font-size:11px;
-    color:var(--text-dim);padding:2px 0;min-height:16px;"></div>
 </div>
 
 <!-- map fills remaining space -->
@@ -392,8 +408,8 @@ canvas#elev-canvas{width:100%;height:200px;display:block;border-radius:var(--r);
   <div style="position:absolute;bottom:8px;left:8px;z-index:500;
     background:rgba(13,17,23,.88);border:1px solid rgba(48,54,61,.8);border-radius:6px;
     padding:5px 9px;font-size:10px;color:#8b949e;pointer-events:none;
-    font-family:'IBM Plex Mono',monospace;line-height:1.6;">
-    🟢 Partenza &nbsp;·&nbsp; 🔴 Punti traccia<br>
+    font-family:'IBM Plex Mono',monospace;line-height:1.7;">
+    🟢 Partenza · 🔴 Punti traccia · 🔵 Waypoint<br>
     Clicca mappa per aggiungere punti
   </div>
 </div>
@@ -837,6 +853,9 @@ let drawPending  = false;// true while fetching a segment
 // icons
 const PIN_DRAW_START = makePin('#3fb950', 18);
 const PIN_DRAW_NODE  = makePin('#e03030', 13);
+const PIN_DRAW_WP    = makePin('#3b82f6', 13);  // waypoint blu sulla mappa traccia
+
+let drawWpMarkers = [];  // marker blu dei waypoint sulla rmap
 
 // switch to topo tile on entering route screen
 function showScreen(s){
@@ -847,10 +866,22 @@ function showScreen(s){
   if(s==='poi') setTimeout(()=>map.invalidateSize(),60);
   if(s==='trk') setTimeout(()=>trkMap.invalidateSize(),60);
   if(s==='route'){
-    setTimeout(()=>{ rmap.invalidateSize(); },60);
+    setTimeout(()=>{ rmap.invalidateSize(); drawRenderWpMarkers(); },60);
     // always topo for track drawing
     if(currentTileType!=='topo') setTileType('topo');
   }
+}
+
+// Render waypoints as blue markers on the draw map
+function drawRenderWpMarkers(){
+  drawWpMarkers.forEach(m=>rmap.removeLayer(m));
+  drawWpMarkers=[];
+  waypoints.filter(w=>w.sel).forEach(w=>{
+    const m=L.marker([w.lat,w.lon],{icon:PIN_DRAW_WP})
+      .addTo(rmap)
+      .bindPopup(`<b style="color:#3b82f6">📌 ${escH(w.name)}</b>${w.ele!=null?'<br>'+Math.round(w.ele)+' m':''}`);
+    drawWpMarkers.push(m);
+  });
 }
 
 // segment mode buttons
@@ -1043,17 +1074,22 @@ function drawClear(){
 }
 
 function drawUpdateStatus(msg){
-  const el=document.getElementById('draw-status');
-  if(msg){ el.textContent=msg; el.style.color='var(--amber)'; return; }
-  if(drawNodes.length===0){
-    el.textContent='Cerca una partenza oppure clicca sulla mappa per iniziare';
-    el.style.color='var(--text-dim)'; return;
-  }
+  // aggiorna info bar
   const allPts = drawSegments.flat();
-  const dist = drawNodes.length>1 ? calcLen(allPts) : 0;
-  const gain = allPts.filter(p=>p.ele!=null).reduce((a,p,i,arr)=>i>0&&p.ele>arr[i-1].ele?a+(p.ele-arr[i-1].ele):a,0);
-  el.textContent=`${drawNodes.length} punti · ${fmtDist(dist)}${gain>0?' · ↑'+Math.round(gain)+' m':''} · Clicca sulla mappa per aggiungere punti`;
-  el.style.color='var(--accent2)';
+  const n = drawNodes.length;
+  const dist = n>1 ? calcLen(allPts) : 0;
+
+  const elePts = allPts.filter(p=>p.ele!=null);
+  let gain=0, loss=0;
+  for(let i=1;i<elePts.length;i++){
+    const d=elePts[i].ele-elePts[i-1].ele;
+    if(d>0) gain+=d; else loss+=Math.abs(d);
+  }
+
+  document.getElementById('di-pts').textContent = n>0 ? `${n} pt` : '— pt';
+  document.getElementById('di-len').textContent = n>1 ? fmtDist(dist) : '— km';
+  document.getElementById('di-dp').textContent  = n>1 ? `D+ ${Math.round(gain)} m` : 'D+ —';
+  document.getElementById('di-dm').textContent  = n>1 ? `D− ${Math.round(loss)} m` : 'D− —';
 }
 
 // rmap click → add draw node
@@ -1080,18 +1116,19 @@ async function drawExport(){
   const yy=String(today.getFullYear()).slice(2);
   const mm=String(today.getMonth()+1).padStart(2,'0');
   const dd=String(today.getDate()).padStart(2,'0');
-  const name=`gpx_track_${yy}${mm}${dd}`;
+  const trkName=(document.getElementById("draw-name").value.trim()||"traccia");
+  const fileName=`gpx_track_${yy}${mm}${dd}`;
 
   let xml='<?xml version="1.0" encoding="UTF-8"?>\n';
   xml+=`<gpx version="1.1" creator="PAM" xmlns="http://www.topografix.com/GPX/1/1">\n`;
-  xml+=`  <trk><name>${name}</name><trkseg>\n`;
+  xml+=`  <trk><name>${trkName}</name><trkseg>\n`;
   allPts.forEach(p=>{
     const el=p.ele!=null?`<ele>${p.ele.toFixed(1)}</ele>`:'';
     xml+=`    <trkpt lat="${p.lat.toFixed(6)}" lon="${p.lon.toFixed(6)}">${el}</trkpt>\n`;
   });
   xml+=`  </trkseg></trk>\n</gpx>`;
-  dlBlob(xml,name+'.gpx','application/gpx+xml');
-  showToast(`Esportato: ${name}.gpx (${allPts.length} punti) ✓`);
+  dlBlob(xml,fileName+'.gpx','application/gpx+xml');
+  showToast(`Esportato: ${fileName}.gpx (${allPts.length} punti) ✓`);
 }
 
 // keep old stubs so nothing else breaks
