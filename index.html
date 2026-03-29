@@ -1047,7 +1047,14 @@ async function navSelectWp(i){
   navDestMarker=new mapboxgl.Marker({element:el2}).setLngLat([w.lon,w.lat])
     .setPopup(new mapboxgl.Popup({offset:10,closeButton:false}).setHTML(`<b>🎯 ${escH(w.name)}</b>`))
     .addTo(map4);
-  map4.flyTo({center:[w.lon,w.lat],zoom:13});
+  // fit map to show destination + current GPS position if known
+  if(navLastPos){
+    const sw=[Math.min(navLastPos.lon,w.lon)-0.001, Math.min(navLastPos.lat,w.lat)-0.001];
+    const ne=[Math.max(navLastPos.lon,w.lon)+0.001, Math.max(navLastPos.lat,w.lat)+0.001];
+    map4.fitBounds([sw,ne],{padding:60,maxZoom:15,duration:800});
+  } else {
+    map4.flyTo({center:[w.lon,w.lat],zoom:13});
+  }
 
   // update alt-dest
   document.getElementById('nav-alt-dest').textContent=ele!=null?Math.round(ele):'—';
@@ -1085,7 +1092,15 @@ function navOnPos(pos){
   if(navPosMarker) navPosMarker.remove();
   const el=makeDot('#3fb950',18,'default');
   navPosMarker=new mapboxgl.Marker({element:el}).setLngLat([lon,lat]).addTo(map4);
-  map4.easeTo({center:[lon,lat],duration:500});
+
+  // fit map to include both current position and destination
+  if(navDest){
+    const sw=[Math.min(lon,navDest.lon)-0.001, Math.min(lat,navDest.lat)-0.001];
+    const ne=[Math.max(lon,navDest.lon)+0.001, Math.max(lat,navDest.lat)+0.001];
+    map4.fitBounds([sw,ne],{padding:60,maxZoom:16,duration:600});
+  } else {
+    map4.easeTo({center:[lon,lat],zoom:15,duration:500});
+  }
 
   if(navDest){
     const dist=haversDist(lat,lon,navDest.lat,navDest.lon);
