@@ -1085,7 +1085,7 @@ function navStop(){
 
 function navOnPos(pos){
   const{latitude:lat,longitude:lon,altitude:alt}=pos.coords;
-  navLastPos={lat,lon};
+  navLastPosPrev = navLastPos; navLastPos={lat,lon};
   if(alt!=null) navLastAlt=alt;
 
   // update position marker
