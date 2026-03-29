@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Send to Garmin</title>
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<style>
+body { margin:0; font-family: sans-serif; }
+#map { height: 70vh; }
+.controls {
+  padding:10px;
+  display:flex;
+  gap:8px;
+}
+input {
+  flex:1;
+  padding:8px;
+}
+button {
+  padding:10px;
+  font-size:16px;
+}
+</style>
+</head>
+
+<body>
+
+<div class="controls">
+  <input id="search" placeholder="Cerca luogo...">
+  <button onclick="searchPlace()">🔎</button>
+</div>
+
+<div id="map"></div>
+
+<div class="controls">
+  <button onclick="sendToGarmin()">📤 Invia a Garmin</button>
+</div>
+
+<script>
+let map = L.map('map').setView([45.4642, 9.19], 13);
+let marker = null;
+let selectedLatLng = null;
+
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  maxZoom: 19
+}).addTo(map);
+
+// Selezione manuale
+map.on('click', function(e) {
+  selectedLatLng = e.latlng;
+  if (marker) map.removeLayer(marker);
+  marker = L.marker(e.latlng).addTo(map);
+});
+
+// Ricerca con Nominatim
+async function searchPlace() {
+  const query = document.getElementById('search').value;
+  const url = `https://nominatim.openstreetmap.org/search?format=json&q=${query}`;
+  const res = await fetch(url);
+  const data = await res.json();
+
+  if (data.length > 0) {
+    const place = data[0];
+    const lat = parseFloat(place.lat);
+    const lon = parseFloat(place.lon);
+
+    selectedLatLng = { lat, lng: lon };
+
+    map.setView([lat, lon], 15);
+    if (marker) map.removeLayer(marker);
+    marker = L.marker([lat, lon]).addTo(map);
+  }
+}
+
+// Genera GPX
+function generateGPX(lat, lon, name="Waypoint") {
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="PWA Garmin Sender">
+  <wpt lat="${lat}" lon="${lon}">
+    <name>${name}</name>
+  </wpt>
+</gpx>`;
+}
+
+// Share
+async function sendToGarmin() {
+  if (!selectedLatLng) {
+    alert("Seleziona un punto!");
+    return;
+  }
+
+  const gpx = generateGPX(selectedLatLng.lat, selectedLatLng.lng);
+  const blob = new Blob([gpx], { type: "application/gpx+xml" });
+  const file = new File([blob], "waypoint.gpx", { type: "application/gpx+xml" });
+
+  if (navigator.canShare && navigator.canShare({ files: [file] })) {
+    try {
+      await navigator.share({
+        title: "Waypoint Garmin",
+        text: "Invio waypoint",
+        files: [file]
+      });
+    } catch (err) {
+      console.error(err);
+    }
+  } else {
+    alert("Condivisione non supportata su questo dispositivo.");
+  }
+}
+</script>
+
+</body>
+</html>
