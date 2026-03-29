@@ -11,18 +11,29 @@
 <style>
 body { margin:0; font-family: sans-serif; }
 #map { height: 70vh; }
+
 .controls {
   padding:10px;
   display:flex;
   gap:8px;
 }
+
 input {
   flex:1;
   padding:8px;
+  font-size:16px;
 }
+
 button {
   padding:10px;
   font-size:16px;
+  cursor:pointer;
+}
+
+.status {
+  padding:10px;
+  font-size:14px;
+  color:#333;
 }
 </style>
 </head>
@@ -40,6 +51,8 @@ button {
   <button onclick="sendToGarmin()">📤 Invia a Garmin</button>
 </div>
 
+<div class="status" id="status"></div>
+
 <script>
 let map = L.map('map').setView([45.4642, 9.19], 13);
 let marker = null;
@@ -49,16 +62,28 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
   maxZoom: 19
 }).addTo(map);
 
-// Selezione manuale
+// Click sulla mappa
 map.on('click', function(e) {
-  selectedLatLng = e.latlng;
-  if (marker) map.removeLayer(marker);
-  marker = L.marker(e.latlng).addTo(map);
+  setPoint(e.latlng.lat, e.latlng.lng);
 });
 
-// Ricerca con Nominatim
+// Imposta punto
+function setPoint(lat, lon) {
+  selectedLatLng = { lat, lng: lon };
+
+  if (marker) map.removeLayer(marker);
+  marker = L.marker([lat, lon]).addTo(map);
+
+  updateStatus(`Punto selezionato: ${lat.toFixed(5)}, ${lon.toFixed(5)}`);
+}
+
+// Ricerca
 async function searchPlace() {
   const query = document.getElementById('search').value;
+  if (!query) return;
+
+  updateStatus("Ricerca in corso...");
+
   const url = `https://nominatim.openstreetmap.org/search?format=json&q=${query}`;
   const res = await fetch(url);
   const data = await res.json();
@@ -68,16 +93,23 @@ async function searchPlace() {
     const lat = parseFloat(place.lat);
     const lon = parseFloat(place.lon);
 
-    selectedLatLng = { lat, lng: lon };
-
     map.setView([lat, lon], 15);
-    if (marker) map.removeLayer(marker);
-    marker = L.marker([lat, lon]).addTo(map);
+    setPoint(lat, lon);
+
+    updateStatus(`Trovato: ${place.display_name}`);
+  } else {
+    updateStatus("Nessun risultato trovato");
   }
 }
 
-// Genera GPX
-function generateGPX(lat, lon, name="Waypoint") {
+// Nome automatico
+function generateName() {
+  const now = new Date();
+  return `WP_${now.getFullYear()}-${(now.getMonth()+1)}-${now.getDate()}_${now.getHours()}-${now.getMinutes()}`;
+}
+
+// GPX
+function generateGPX(lat, lon, name) {
   return `<?xml version="1.0" encoding="UTF-8"?>
 <gpx version="1.1" creator="PWA Garmin Sender">
   <wpt lat="${lat}" lon="${lon}">
@@ -86,17 +118,25 @@ function generateGPX(lat, lon, name="Waypoint") {
 </gpx>`;
 }
 
-// Share
+// Stato UI
+function updateStatus(msg) {
+  document.getElementById("status").innerText = msg;
+}
+
+// Invio
 async function sendToGarmin() {
   if (!selectedLatLng) {
     alert("Seleziona un punto!");
     return;
   }
 
-  const gpx = generateGPX(selectedLatLng.lat, selectedLatLng.lng);
-  const blob = new Blob([gpx], { type: "application/gpx+xml" });
-  const file = new File([blob], "waypoint.gpx", { type: "application/gpx+xml" });
+  const name = generateName();
+  const gpx = generateGPX(selectedLatLng.lat, selectedLatLng.lng, name);
 
+  const blob = new Blob([gpx], { type: "application/gpx+xml" });
+  const file = new File([blob], `${name}.gpx`, { type: "application/gpx+xml" });
+
+  // SHARE DIRETTO
   if (navigator.canShare && navigator.canShare({ files: [file] })) {
     try {
       await navigator.share({
@@ -104,12 +144,24 @@ async function sendToGarmin() {
         text: "Invio waypoint",
         files: [file]
       });
+
+      updateStatus("Condivisione aperta. Seleziona Garmin Connect.");
+      return;
+
     } catch (err) {
-      console.error(err);
+      console.log("Share annullato o fallito");
     }
-  } else {
-    alert("Condivisione non supportata su questo dispositivo.");
   }
+
+  // FALLBACK DOWNLOAD
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `${name}.gpx`;
+  a.click();
+  URL.revokeObjectURL(url);
+
+  updateStatus("File scaricato. Aprilo e condividilo con Garmin Connect.");
 }
 </script>
 
