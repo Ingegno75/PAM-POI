@@ -12,7 +12,9 @@
 <link rel="apple-touch-icon" href="icon.png">
 
 <link href="https://api.mapbox.com/mapbox-gl-js/v3.3.0/mapbox-gl.css" rel="stylesheet">
-<script src="https://api.mapbox.com/mapbox-gl-js/v3.3.0/mapbox-gl.js"></script>
+<script src="https://api.mapbox.com/mapbox-gl-js/v3.3.0/mapbox-gl.js">
+
+</script>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
 <style>
@@ -921,11 +923,7 @@ let navCompassHdg  = null;   // device compass heading (degrees, 0=N)
 let navGpsBearing  = null;   // GPS-derived bearing to dest
 
 // Device orientation (compass) — request permission on iOS 13+
-function startCompass(){
-  if(typeof DeviceOrientationEvent !== 'undefined' &&
-     typeof DeviceOrientationEvent.requestPermission === 'function'){
-    DeviceOrientationEvent.requestPermission()
-      .then(state=>{ if(state==='granted') window.addEventListener('deviceorientationabsolute',onOrientation,true); })
+function startCompass(){})
       .catch(()=>{ window.addEventListener('deviceorientation',onOrientation,true); });
   } else {
     window.addEventListener('deviceorientationabsolute',onOrientation,true);
@@ -1069,7 +1067,6 @@ function navStart(){
   if(!navigator.geolocation){showToast('GPS non disponibile');return;}
   navActive=true;
   document.getElementById('btn-nav-stop').style.display='';
-  startCompass();
   navWatchId=navigator.geolocation.watchPosition(navOnPos,
     e=>showToast('GPS: '+e.message),
     {enableHighAccuracy:true,maximumAge:1000,timeout:15000});
@@ -1614,6 +1611,55 @@ document.addEventListener('click',e=>{
 if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{});
 // render() is called after map1 'load' event
 drawUpdateStatus();
+
+function enableCompass(){
+  if (typeof DeviceOrientationEvent !== 'undefined' &&
+      typeof DeviceOrientationEvent.requestPermission === 'function') {
+
+    DeviceOrientationEvent.requestPermission()
+      .then(permissionState => {
+        if (permissionState === 'granted') {
+          window.addEventListener('deviceorientation', onOrientation, true);
+          document.getElementById('compass-overlay').style.display='none';
+          showToast('🧭 Bussola attiva');
+        } else {
+          showToast('Permesso bussola negato');
+        }
+      })
+      .catch(console.error);
+
+  } else {
+    window.addEventListener('deviceorientation', onOrientation, true);
+    document.getElementById('compass-overlay').style.display='none';
+  }
+}
+
 </script>
+
+<button onclick="
+if (typeof DeviceOrientationEvent !== 'undefined' &&
+    typeof DeviceOrientationEvent.requestPermission === 'function') {
+
+  DeviceOrientationEvent.requestPermission().then(function(res){
+    if(res==='granted'){
+      window.addEventListener('deviceorientation', onOrientation, true);
+      document.getElementById('compass-overlay').style.display='none';
+    } else {
+      alert('Permesso negato');
+    }
+  }).catch(function(e){
+    alert('Errore attivazione bussola');
+  });
+
+} else {
+  window.addEventListener('deviceorientation', onOrientation, true);
+  document.getElementById('compass-overlay').style.display='none';
+}
+">
+🧭 Attiva bussola
+</button>
+
+</div>
+
 </body>
 </html>
