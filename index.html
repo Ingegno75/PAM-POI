@@ -397,6 +397,7 @@ canvas#elev-canvas{width:100%;height:200px;display:block;border-radius:var(--r);
       <button class="tile-btn active" data-tile="outdoors" onclick="setStyle('outdoors')" title="Outdoor">🥾</button>
       <button class="tile-btn" data-tile="streets" onclick="setStyle('streets')" title="Stradale">🚗</button>
     </div>
+    <button class="btn btn-amber btn-sm" onclick="requestCompassPermission()" id="btn-compass-req" title="Attiva bussola">🧭 Bussola</button>
     <button class="btn btn-red btn-sm" onclick="navClear()" id="btn-nav-stop" style="display:none;">⏹ Stop</button>
   </div>
 
@@ -920,29 +921,73 @@ let navLastAlt     = null;
 let navCompassHdg  = null;   // device compass heading (degrees, 0=N)
 let navGpsBearing  = null;   // GPS-derived bearing to dest
 
-// Device orientation (compass) — request permission on iOS 13+
-function startCompass(){
+// ── COMPASS (iOS Safari requires explicit user-gesture permission call) ─────────
+//
+// Rules for iOS 13+ (confirmed Safari / iOS 18 / iOS 26 beta):
+//   1. DeviceOrientationEvent.requestPermission() MUST be called synchronously
+//      inside a direct onclick handler — NOT inside a Promise/async callback.
+//   2. Safari only fires 'deviceorientation', NOT 'deviceorientationabsolute'.
+//   3. webkitCompassHeading gives the true-north heading (0–360, clockwise).
+//   4. The permission dialog is shown once per origin; after grant it persists
+//      until the user resets site settings in Safari preferences.
+//
+// We expose a dedicated button "🧭 Bussola" whose onclick IS the synchronous
+// call — this guarantees the permission dialog appears correctly on iOS.
+
+let compassGranted = false;
+
+// Called directly by onclick="requestCompassPermission()" — must stay sync
+function requestCompassPermission(){
   if(typeof DeviceOrientationEvent !== 'undefined' &&
      typeof DeviceOrientationEvent.requestPermission === 'function'){
-    DeviceOrientationEvent.requestPermission()
-      .then(state=>{ if(state==='granted') window.addEventListener('deviceorientationabsolute',onOrientation,true); })
-      .catch(()=>{ window.addEventListener('deviceorientation',onOrientation,true); });
+    // iOS 13+ path — this call MUST be here, synchronously in the click handler
+    DeviceOrientationEvent.requestPermission().then(state=>{
+      if(state === 'granted'){
+        compassGranted = true;
+        attachCompassListener();
+        document.getElementById('btn-compass-req').textContent = '🧭 ✓';
+        document.getElementById('btn-compass-req').classList.add('btn-green');
+        showToast('Bussola autorizzata ✓');
+      } else {
+        showToast('Bussola negata — verifica Impostazioni > Safari > Sensori');
+      }
+    }).catch(err=>{
+      showToast('Errore bussola: '+err.message);
+    });
   } else {
-    window.addEventListener('deviceorientationabsolute',onOrientation,true);
-    window.addEventListener('deviceorientation',onOrientation,true);
+    // Android / non-iOS: no permission needed, just attach
+    compassGranted = true;
+    attachCompassListener();
+    document.getElementById('btn-compass-req').textContent = '🧭 ✓';
+    showToast('Bussola attiva ✓');
   }
 }
-function stopCompass(){
-  window.removeEventListener('deviceorientationabsolute',onOrientation,true);
-  window.removeEventListener('deviceorientation',onOrientation,true);
-  navCompassHdg=null;
+
+function attachCompassListener(){
+  // Use only 'deviceorientation' — Safari does NOT support 'deviceorientationabsolute'
+  window.addEventListener('deviceorientation', onOrientation, true);
 }
+
+function startCompass(){
+  // If already granted (e.g. page reload within session), just attach
+  if(compassGranted){
+    attachCompassListener();
+  }
+  // Otherwise the user must press the 🧭 button — we cannot call
+  // requestPermission() here because we may not be in a direct click handler
+}
+
+function stopCompass(){
+  window.removeEventListener('deviceorientation', onOrientation, true);
+  navCompassHdg = null;
+}
+
 function onOrientation(e){
-  // alpha = compass heading (0=N on absolute, varies on relative)
-  let hdg = e.webkitCompassHeading ?? // iOS Safari
-            (e.absolute && e.alpha!=null ? (360-e.alpha)%360 : null);
-  if(hdg===null) return;
-  navCompassHdg=hdg;
+  // webkitCompassHeading: iOS Safari proprietary, degrees from true north, 0–360
+  // This is the ONLY reliable source on iPhone/iPad Safari
+  const hdg = e.webkitCompassHeading;
+  if(hdg == null || isNaN(hdg)) return;
+  navCompassHdg = hdg;
   updateArrow();
 }
 function updateArrow(){
@@ -956,9 +1001,10 @@ function updateArrow(){
     : bearingToDest; // fallback: absolute bearing if no compass
   document.getElementById('nav-arrow-svg').style.transform=`rotate(${rot}deg)`;
   const dirs=['N','NE','E','SE','S','SO','O','NO'];
+  const compassOk = navCompassHdg!=null;
   document.getElementById('nav-dir-label').textContent=
-    '→ '+dirs[Math.round(bearingToDest/45)%8]+' · '+
-    (navCompassHdg!=null?'bussola attiva':'bussola non disponibile');
+    '→ '+dirs[Math.round(bearingToDest/45)%8]+
+    (compassOk?' · 🧭 '+Math.round(navCompassHdg)+'°':' · premi 🧭 Bussola');
 }
 
 map4.on('load', ()=>{
