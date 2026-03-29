@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PAM Compass Outdoor</title>
+<style>
+body { font-family: Arial; margin:0; }
+#overlay {
+  position:fixed; top:0; left:0; right:0; bottom:0;
+  background:rgba(0,0,0,0.6);
+  display:flex; align-items:center; justify-content:center;
+  z-index:999;
+}
+#overlay-box {
+  background:#111; color:#fff; padding:20px; border-radius:12px;
+  text-align:center;
+}
+button {
+  padding:12px 20px; font-size:16px; border:none; border-radius:8px;
+}
+#arrow {
+  width:100px; height:100px; margin:50px auto;
+  transition: transform 0.2s linear;
+}
+</style>
+</head>
+<body>
+
+<div id="overlay">
+  <div id="overlay-box">
+    <p>Attiva la bussola per iniziare</p>
+    <button onclick="enableCompass()">🧭 Attiva bussola</button>
+  </div>
+</div>
+
+<div id="arrow">⬆️</div>
+
+<script>
+let heading = null;
+
+function enableCompass(){
+  if (typeof DeviceOrientationEvent !== 'undefined' &&
+      typeof DeviceOrientationEvent.requestPermission === 'function') {
+
+    DeviceOrientationEvent.requestPermission()
+      .then(permissionState => {
+        if (permissionState === 'granted') {
+          window.addEventListener('deviceorientation', onOrientation, true);
+          document.getElementById('overlay').style.display='none';
+        } else {
+          alert('Permesso negato');
+        }
+      })
+      .catch(console.error);
+
+  } else {
+    window.addEventListener('deviceorientation', onOrientation, true);
+    document.getElementById('overlay').style.display='none';
+  }
+}
+
+function onOrientation(e){
+  let hdg = null;
+
+  if (e.webkitCompassHeading !== undefined) {
+    hdg = e.webkitCompassHeading;
+  } else if (e.alpha != null) {
+    hdg = (360 - e.alpha) % 360;
+  }
+
+  if (hdg == null) return;
+
+  heading = hdg;
+  document.getElementById('arrow').style.transform = 'rotate(' + heading + 'deg)';
+}
+</script>
+
+</body>
+</html>
