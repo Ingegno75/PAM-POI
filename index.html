@@ -213,6 +213,15 @@ canvas#elev-canvas{width:100%;height:200px;display:block;border-radius:var(--r);
 .mb-dot{width:14px;height:14px;border-radius:50%;border:2px solid #fff;cursor:pointer;
   box-shadow:0 0 6px rgba(0,0,0,.5);}
 
+/* NAV WP list */
+.nav-wp-item{display:flex;align-items:center;gap:10px;padding:10px 12px;
+  border-bottom:1px solid rgba(48,54,61,.4);cursor:pointer;transition:background .1s;}
+.nav-wp-item:hover{background:var(--surface2);}
+.nav-wp-item.active-dest{background:rgba(88,166,255,.1);border-left:3px solid var(--accent);}
+.nav-wp-dot{width:12px;height:12px;border-radius:50%;border:2px solid #fff;flex-shrink:0;}
+.nav-wp-name{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:500;}
+.nav-wp-dist{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--text-dim);flex-shrink:0;}
+
 /* TOAST */
 .toast{position:fixed;bottom:calc(var(--safe-bot)+12px);left:50%;
   transform:translateX(-50%) translateY(60px);background:var(--surface2);border:1px solid var(--border);
@@ -256,6 +265,16 @@ canvas#elev-canvas{width:100%;height:200px;display:block;border-radius:var(--r);
   <div class="map-wrap"><div id="map"></div>
   </div>
   <div class="bottom-panel">
+    <div class="offline-bar" id="poi-offline-bar">
+      <progress id="cache-progress" value="0" max="100"
+        style="display:none;flex:1;height:4px;border-radius:2px;accent-color:var(--accent2);min-width:60px;"></progress>
+      <span id="cache-status" style="font-family:'IBM Plex Mono',monospace;font-size:10px;
+        color:var(--text-dim);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+        Nessuna area OSM salvata
+      </span>
+      <button class="btn btn-dim btn-sm" onclick="cacheOsmArea()" title="Scarica mappa OSM area visibile per uso offline">💾 OSM offline</button>
+      <button class="btn btn-red btn-sm" onclick="clearOsmCache()" style="padding:4px 6px;">🗑</button>
+    </div>
     <div class="ref-bar">
       <span class="ref-label">Distanza da:</span>
       <select class="ref-sel" id="ref-sel" onchange="renderPoiTable()">
@@ -374,62 +393,46 @@ canvas#elev-canvas{width:100%;height:200px;display:block;border-radius:var(--r);
 <div class="screen" id="scr-nav">
   <div class="topbar">
     <div class="logo">PAM · Naviga</div>
-    <div style="position:relative;flex:1;min-width:140px;">
-      <input id="nav-search" class="picker-input" placeholder="🔍 Cerca destinazione…" autocomplete="off"
-        oninput="liveSearch('nav-search','nav-sdrop',null)"
-        onkeydown="if(event.key==='Enter'){navSearchGo();closeDrop('nav-sdrop')}">
-      <div class="sdrop" id="nav-sdrop"></div>
-    </div>
-    <button class="btn btn-dim btn-sm" onclick="navPickMode()" id="btn-nav-pick" title="Scegli sulla mappa">🖱</button>
     <div class="tile-toggle">
-      <button class="tile-btn active" data-tile="outdoors" onclick="setStyle('outdoors')" title="Mapbox Outdoor">🥾</button>
-      <button class="tile-btn" data-tile="streets" onclick="setStyle('streets')" title="Mapbox Stradale">🚗</button>
-      <button class="tile-btn" id="btn-osm-layer" onclick="toggleOsmLayer()" title="OSM offline scaricabile">📡</button>
+      <button class="tile-btn active" data-tile="outdoors" onclick="setStyle('outdoors')" title="Outdoor">🥾</button>
+      <button class="tile-btn" data-tile="streets" onclick="setStyle('streets')" title="Stradale">🚗</button>
     </div>
+    <button class="btn btn-red btn-sm" onclick="navClear()" id="btn-nav-stop" style="display:none;">⏹ Stop</button>
   </div>
 
   <div class="nav-screen-layout">
-    <!-- offline cache bar -->
-    <div class="offline-bar">
-      <div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap;width:100%;">
-        <span id="osm-layer-badge" style="font-family:'IBM Plex Mono',monospace;font-size:10px;
-          background:var(--surface3);padding:2px 7px;border-radius:4px;color:var(--text-dim);">
-          🗺 Mapbox (online)
-        </span>
-        <progress id="cache-progress" value="0" max="100"
-          style="display:none;flex:1;height:4px;border-radius:2px;accent-color:var(--accent2);min-width:60px;"></progress>
-        <span id="cache-status" style="font-family:'IBM Plex Mono',monospace;font-size:10px;
-          color:var(--text-dim);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
-          Nessuna area salvata
-        </span>
-        <button class="btn btn-dim btn-sm" onclick="cacheOsmArea()" title="Scarica OSM area visibile per uso offline">
-          💾 Scarica OSM
-        </button>
-        <button class="btn btn-red btn-sm" onclick="clearOsmCache()" title="Cancella OSM salvato">🗑</button>
-      </div>
-    </div>
+
 
     <div class="nav-map-wrap"><div id="nav-map"></div>
       <div class="map-hint" id="nav-map-hint">Clicca sulla mappa per scegliere la destinazione</div>
     </div>
 
+    <!-- nav panel: arrow + stats always visible -->
     <div class="nav-panel">
-      <!-- compass + istruzione -->
-      <div class="nav-compass">
-        <div class="nav-arrow-wrap">
-          <svg id="nav-arrow-svg" viewBox="0 0 72 72" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <circle cx="36" cy="36" r="34" fill="#21262d" stroke="#30363d" stroke-width="2"/>
-            <polygon points="36,8 44,52 36,44 28,52" fill="#58a6ff"/>
-            <polygon points="36,64 44,20 36,28 28,20" fill="#30363d"/>
-          </svg>
-        </div>
-        <div class="nav-instruction">
-          <div class="nav-instruction-text" id="nav-instr-text">Nessuna destinazione</div>
-          <div class="nav-instruction-dist" id="nav-instr-dist"></div>
+      <!-- big compass arrow -->
+      <div style="display:flex;align-items:center;justify-content:center;padding:12px 10px 6px;gap:18px;">
+        <svg id="nav-arrow-svg" viewBox="0 0 96 96" fill="none" xmlns="http://www.w3.org/2000/svg"
+          style="width:96px;height:96px;flex-shrink:0;transition:transform .15s ease-out;">
+          <circle cx="48" cy="48" r="46" fill="#21262d" stroke="#30363d" stroke-width="2"/>
+          <!-- N label -->
+          <text x="48" y="18" text-anchor="middle" fill="#8b949e" font-size="10" font-family="IBM Plex Mono,monospace">N</text>
+          <!-- arrow pointing UP = toward destination -->
+          <polygon points="48,22 57,68 48,60 39,68" fill="#58a6ff"/>
+          <polygon points="48,74 57,28 48,36 39,28" fill="#30363d"/>
+          <!-- center dot -->
+          <circle cx="48" cy="48" r="4" fill="#58a6ff"/>
+        </svg>
+        <div style="flex:1;min-width:0;">
+          <div id="nav-dest-name" style="font-size:13px;font-weight:600;color:var(--text);
+            white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:6px;">
+            Scegli un waypoint dalla lista
+          </div>
+          <div id="nav-dir-label" style="font-family:'IBM Plex Mono',monospace;font-size:11px;
+            color:var(--text-dim);">—</div>
         </div>
       </div>
-      <!-- stats -->
-      <div class="nav-stats">
+      <!-- 4 stats: dist, dalt, alt-now, alt-dest -->
+      <div class="nav-stats" style="grid-template-columns:1fr 1fr 1fr 1fr;">
         <div class="nav-stat">
           <div class="nav-stat-label">DISTANZA</div>
           <div class="nav-stat-val" id="nav-dist">—</div>
@@ -441,17 +444,25 @@ canvas#elev-canvas{width:100%;height:200px;display:block;border-radius:var(--r);
           <div class="nav-stat-unit">m</div>
         </div>
         <div class="nav-stat">
-          <div class="nav-stat-label">VELOCITÀ</div>
-          <div class="nav-stat-val" id="nav-speed">—</div>
-          <div class="nav-stat-unit">km/h</div>
+          <div class="nav-stat-label">QUOTA TU</div>
+          <div class="nav-stat-val" id="nav-alt-you">—</div>
+          <div class="nav-stat-unit">m</div>
+        </div>
+        <div class="nav-stat">
+          <div class="nav-stat-label">QUOTA DEST</div>
+          <div class="nav-stat-val" id="nav-alt-dest">—</div>
+          <div class="nav-stat-unit">m</div>
         </div>
       </div>
-      <!-- dest bar + controls -->
-      <div class="nav-dest-bar">
-        <span class="nav-dest-name" id="nav-dest-name">Nessuna destinazione selezionata</span>
-        <button class="btn btn-blue btn-sm" id="btn-nav-start" onclick="navToggle()">▶ Avvia</button>
-        <button class="btn btn-red btn-sm" onclick="navClear()">✕ Cancella</button>
+    </div>
+
+    <!-- WP list: select one to navigate -->
+    <div style="flex-shrink:0;max-height:30dvh;overflow-y:auto;background:var(--surface);">
+      <div style="padding:5px 10px;font-family:'IBM Plex Mono',monospace;font-size:10px;
+        color:var(--text-dim);border-bottom:1px solid var(--border);letter-spacing:.06em;">
+        SELEZIONA DESTINAZIONE
       </div>
+      <div id="nav-wp-list" style="font-size:13px;"></div>
     </div>
   </div>
 </div>
@@ -569,7 +580,7 @@ function showScreen(s){
   });
   if(s==='poi') setTimeout(()=>map1.resize(),60);
   if(s==='trk') setTimeout(()=>map2.resize(),60);
-  if(s==='nav') setTimeout(()=>{ map4.resize(); checkOsmCache(); },60);
+  if(s==='nav') setTimeout(()=>{ map4.resize(); checkOsmCache(); renderNavWpList(); },60);
   if(s==='route'){
     setTimeout(()=>{
       map3.resize();
@@ -893,19 +904,62 @@ const map4 = new mapboxgl.Map({
 map4.addControl(new mapboxgl.NavigationControl({showCompass:true}),'top-right');
 
 // nav state
-let navDest      = null;   // {lat, lon, name, ele}
-let navActive    = false;
-let navWatchId   = null;
-let navPosMarker = null;   // user position on nav map
-let navDestMarker= null;   // destination marker
-let navRouteSrc  = 'nav-route-src';
-let navRouteLay  = 'nav-route-lay';
-let navPickActive= false;
-let navMapReady  = false;
-let navSteps     = [];     // OSRM step instructions
-let navStepIdx   = 0;
-let navLastPos   = null;
-let navLastAlt   = null;
+let navDest        = null;
+let navActive      = false;
+let navWatchId     = null;
+let navPosMarker   = null;
+let navDestMarker  = null;
+let navRouteSrc    = 'nav-route-src';
+let navRouteLay    = 'nav-route-lay';
+let navPickActive  = false;
+let navMapReady    = false;
+let navSteps       = [];
+let navStepIdx     = 0;
+let navLastPos     = null;
+let navLastAlt     = null;
+let navCompassHdg  = null;   // device compass heading (degrees, 0=N)
+let navGpsBearing  = null;   // GPS-derived bearing to dest
+
+// Device orientation (compass) — request permission on iOS 13+
+function startCompass(){
+  if(typeof DeviceOrientationEvent !== 'undefined' &&
+     typeof DeviceOrientationEvent.requestPermission === 'function'){
+    DeviceOrientationEvent.requestPermission()
+      .then(state=>{ if(state==='granted') window.addEventListener('deviceorientationabsolute',onOrientation,true); })
+      .catch(()=>{ window.addEventListener('deviceorientation',onOrientation,true); });
+  } else {
+    window.addEventListener('deviceorientationabsolute',onOrientation,true);
+    window.addEventListener('deviceorientation',onOrientation,true);
+  }
+}
+function stopCompass(){
+  window.removeEventListener('deviceorientationabsolute',onOrientation,true);
+  window.removeEventListener('deviceorientation',onOrientation,true);
+  navCompassHdg=null;
+}
+function onOrientation(e){
+  // alpha = compass heading (0=N on absolute, varies on relative)
+  let hdg = e.webkitCompassHeading ?? // iOS Safari
+            (e.absolute && e.alpha!=null ? (360-e.alpha)%360 : null);
+  if(hdg===null) return;
+  navCompassHdg=hdg;
+  updateArrow();
+}
+function updateArrow(){
+  if(!navDest||navLastPos===null) return;
+  // bearing to dest (GPS-derived, absolute)
+  const bearingToDest = calcBearing(navLastPos.lat,navLastPos.lon,navDest.lat,navDest.lon);
+  // arrow rotation = bearing to dest minus current compass heading
+  // → points to dest relative to device orientation
+  const rot = navCompassHdg!=null
+    ? (bearingToDest - navCompassHdg + 360) % 360
+    : bearingToDest; // fallback: absolute bearing if no compass
+  document.getElementById('nav-arrow-svg').style.transform=`rotate(${rot}deg)`;
+  const dirs=['N','NE','E','SE','S','SO','O','NO'];
+  document.getElementById('nav-dir-label').textContent=
+    '→ '+dirs[Math.round(bearingToDest/45)%8]+' · '+
+    (navCompassHdg!=null?'bussola attiva':'bussola non disponibile');
+}
 
 map4.on('load', ()=>{
   navMapReady=true;
@@ -918,150 +972,148 @@ map4.on('load', ()=>{
 const _origSetStyle = setStyle;
 // We patch setStyle below after its definition
 
-map4.on('click', e=>{
-  if(!navPickActive) return;
-  stopNavPick();
-  const {lat,lng}=e.lngLat;
-  fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`,
-    {headers:{'Accept-Language':'it'}})
-  .then(r=>r.json()).then(d=>setNavDest(lat,lng,d.display_name||`${lat.toFixed(5)},${lng.toFixed(5)}`))
-  .catch(()=>setNavDest(lat,lng,`${lat.toFixed(5)}, ${lng.toFixed(5)}`));
-});
+// map4 click: not used (nav via WP list)
 
-function navPickMode(){
-  navPickActive=!navPickActive;
-  const btn=document.getElementById('btn-nav-pick');
-  btn.classList.toggle('btn-active-map',navPickActive);
-  document.getElementById('nav-map-hint').style.display=navPickActive?'block':'none';
-  map4.getCanvas().style.cursor=navPickActive?'crosshair':'';
-}
-function stopNavPick(){
-  navPickActive=false;
-  document.getElementById('btn-nav-pick').classList.remove('btn-active-map');
-  document.getElementById('nav-map-hint').style.display='none';
-  map4.getCanvas().style.cursor='';
-}
 
-function navSearchGo(){
-  const q=document.getElementById('nav-search').value.trim(); if(!q)return;
-  fetch('https://nominatim.openstreetmap.org/search?format=json&limit=1&q='+encodeURIComponent(q),
-    {headers:{'Accept-Language':'it'}})
-  .then(r=>r.json()).then(d=>{
-    if(!d.length){showToast('Nessun risultato');return;}
-    setNavDest(+d[0].lat,+d[0].lon,d[0].display_name);
-    document.getElementById('nav-search').value=d[0].display_name;
-  }).catch(()=>showToast('Errore ricerca'));
-}
-document.getElementById('nav-search').addEventListener('input',function(){
-  liveSearch('nav-search','nav-sdrop',(name,lat,lon)=>{
-    closeDrop('nav-sdrop');
-    setNavDest(lat,lon,name);
-    document.getElementById('nav-search').value=name;
-  });
-});
 
-async function setNavDest(lat,lon,name){
-  navDest={lat,lon,name,ele:null};
-  document.getElementById('nav-dest-name').textContent=name;
-  // fetch elevation of destination
-  try{
-    const r=await fetch(`https://api.open-elevation.com/api/v1/lookup?locations=${lat},${lon}`);
-    const d=await r.json();
-    if(d.results?.[0]) navDest.ele=d.results[0].elevation;
-  }catch(e){}
-  // place dest marker
-  if(navDestMarker) navDestMarker.remove();
-  const el=makeDot('#f85149',18,'default');
-  navDestMarker=new mapboxgl.Marker({element:el}).setLngLat([lon,lat])
-    .setPopup(new mapboxgl.Popup({offset:10,closeButton:false}).setHTML(`<b>🎯 ${escH(name)}</b>`))
-    .addTo(map4);
-  map4.flyTo({center:[lon,lat],zoom:14});
-  // route drawn as straight line to dest
-  if(navMapReady&&map4.getSource(navRouteSrc)){
-    map4.getSource(navRouteSrc).setData({type:'Feature',geometry:{type:'LineString',coordinates:[[navDest.lon,navDest.lat]]}});
-  }
-  updateNavUI();
-  showToast('Destinazione impostata ✓');
-}
+
+
+
+// setNavDest replaced by navSelectWp
 
 function navClear(){
   navStop();
-  navDest=null;
-  navSteps=[];navStepIdx=0;
+  navDest=null; navSteps=[]; navStepIdx=0;
   if(navDestMarker){navDestMarker.remove();navDestMarker=null;}
   if(navMapReady&&map4.getSource(navRouteSrc))
     map4.getSource(navRouteSrc).setData({type:'Feature',geometry:{type:'LineString',coordinates:[]}});
-  document.getElementById('nav-dest-name').textContent='Nessuna destinazione selezionata';
-  document.getElementById('nav-search').value='';
-  document.getElementById('btn-nav-start').textContent='▶ Avvia';
-  document.getElementById('nav-instr-text').textContent='Nessuna destinazione';
-  document.getElementById('nav-instr-dist').textContent='';
+  document.getElementById('nav-dest-name').textContent='Scegli un waypoint dalla lista';
+  document.getElementById('nav-dir-label').textContent='—';
   document.getElementById('nav-dist').textContent='—';
   document.getElementById('nav-dalt').textContent='—';
-  document.getElementById('nav-speed').textContent='—';
-  setArrow(null);
+  document.getElementById('nav-alt-you').textContent='—';
+  document.getElementById('nav-alt-dest').textContent='—';
+  document.getElementById('nav-arrow-svg').style.transform='rotate(0deg)';
+  renderNavWpList();
 }
 
 function navToggle(){
-  if(!navDest){showToast('Imposta prima una destinazione');return;}
+  if(!navDest){showToast('Seleziona un waypoint dalla lista');return;}
   if(navActive) navStop(); else navStart();
+}
+
+// Render WP list in nav screen - called on screen switch
+function renderNavWpList(){
+  const el=document.getElementById('nav-wp-list');
+  if(!waypoints.length){
+    el.innerHTML='<div style="padding:14px;text-align:center;color:var(--text-dim);font-size:12px;">Nessun waypoint — aggiungili nella schermata Waypoint</div>';
+    return;
+  }
+  const ref=navLastPos||gpsPos;
+  el.innerHTML=waypoints.map((w,i)=>{
+    const dist=ref?haversDist(ref.lat,ref.lon,w.lat,w.lon):null;
+    const distStr=dist!=null?fmtDist(dist):'';
+    const isActive=navDest&&navDest._idx===i;
+    return `<div class="nav-wp-item ${isActive?'active-dest':''}" onclick="navSelectWp(${i})">
+      <div class="nav-wp-dot" style="background:#e03030;"></div>
+      <span class="nav-wp-name" title="${escAttr(w.name)}">${escH(w.name)}</span>
+      <span class="nav-wp-dist">${distStr}</span>
+      ${w.ele!=null?`<span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text-dim);">${Math.round(w.ele)} m</span>`:''}
+    </div>`;
+  }).join('');
+}
+
+async function navSelectWp(i){
+  const w=waypoints[i];
+  // stop current nav if active
+  if(navActive) navStop();
+
+  let ele=w.ele;
+  // try to get elevation if missing
+  if(ele==null){
+    try{
+      const r=await fetch(`https://api.open-elevation.com/api/v1/lookup?locations=${w.lat},${w.lon}`);
+      const d=await r.json();
+      ele=d.results?.[0]?.elevation??null;
+    }catch(e){}
+  }
+
+  navDest={lat:w.lat,lon:w.lon,name:w.name,ele,_idx:i};
+  document.getElementById('nav-dest-name').textContent=w.name;
+
+  // place dest marker on map4
+  if(navDestMarker) navDestMarker.remove();
+  const el2=makeDot('#f85149',18,'default');
+  navDestMarker=new mapboxgl.Marker({element:el2}).setLngLat([w.lon,w.lat])
+    .setPopup(new mapboxgl.Popup({offset:10,closeButton:false}).setHTML(`<b>🎯 ${escH(w.name)}</b>`))
+    .addTo(map4);
+  map4.flyTo({center:[w.lon,w.lat],zoom:13});
+
+  // update alt-dest
+  document.getElementById('nav-alt-dest').textContent=ele!=null?Math.round(ele):'—';
+
+  renderNavWpList();
+  // auto-start navigation
+  navStart();
+  showToast(`Navigazione verso: ${w.name}`);
 }
 
 function navStart(){
   if(!navigator.geolocation){showToast('GPS non disponibile');return;}
   navActive=true;
-  document.getElementById('btn-nav-start').textContent='⏹ Stop';
+  document.getElementById('btn-nav-stop').style.display='';
+  startCompass();
   navWatchId=navigator.geolocation.watchPosition(navOnPos,
-    ()=>showToast('Impossibile acquisire GPS'),
-    {enableHighAccuracy:true,maximumAge:2000,timeout:10000});
+    e=>showToast('GPS: '+e.message),
+    {enableHighAccuracy:true,maximumAge:1000,timeout:15000});
   showToast('Navigazione avviata ✓');
 }
 
 function navStop(){
   navActive=false;
+  stopCompass();
   if(navWatchId!=null){navigator.geolocation.clearWatch(navWatchId);navWatchId=null;}
-  document.getElementById('btn-nav-start').textContent='▶ Avvia';
+  document.getElementById('btn-nav-stop').style.display='none';
 }
 
-async function navOnPos(pos){
-  const{latitude:lat,longitude:lon,altitude:alt,speed}=pos.coords;
+function navOnPos(pos){
+  const{latitude:lat,longitude:lon,altitude:alt}=pos.coords;
   navLastPos={lat,lon};
   if(alt!=null) navLastAlt=alt;
 
-  // update position marker on nav map
+  // update position marker
   if(navPosMarker) navPosMarker.remove();
   const el=makeDot('#3fb950',18,'default');
   navPosMarker=new mapboxgl.Marker({element:el}).setLngLat([lon,lat]).addTo(map4);
-  map4.easeTo({center:[lon,lat],duration:800});
+  map4.easeTo({center:[lon,lat],duration:500});
 
-  // compute bearing to dest
   if(navDest){
-    const bearing=calcBearing(lat,lon,navDest.lat,navDest.lon);
     const dist=haversDist(lat,lon,navDest.lat,navDest.lon);
-    const dAlt=navDest.ele!=null&&alt!=null ? Math.round(navDest.ele-alt) : null;
-
-    setArrow(bearing);
+    const dAlt=navDest.ele!=null&&alt!=null?Math.round(navDest.ele-alt):null;
 
     // distance
-    const dEl=document.getElementById('nav-dist');
-    const uEl=document.getElementById('nav-dist-unit');
-    if(dist>=1000){dEl.textContent=(dist/1000).toFixed(1);uEl.textContent='km';}
-    else{dEl.textContent=Math.round(dist);uEl.textContent='m';}
+    if(dist>=1000){
+      document.getElementById('nav-dist').textContent=(dist/1000).toFixed(2);
+      document.getElementById('nav-dist-unit').textContent='km';
+    } else {
+      document.getElementById('nav-dist').textContent=Math.round(dist);
+      document.getElementById('nav-dist-unit').textContent='m';
+    }
 
-    // dislivello
+    // dislivello (signed)
     document.getElementById('nav-dalt').textContent=
       dAlt!=null?(dAlt>=0?'+':'')+dAlt:'—';
 
-    // speed
-    if(speed!=null&&speed>=0) document.getElementById('nav-speed').textContent=(speed*3.6).toFixed(1);
+    // altitude current
+    document.getElementById('nav-alt-you').textContent=
+      alt!=null?Math.round(alt):'—';
 
-    // Direction label
-    const dirs=['N','NE','E','SE','S','SO','O','NO'];
-    const dirLabel=dirs[Math.round(bearing/45)%8];
-    document.getElementById('nav-instr-text').textContent=
-      `Direzione ${dirLabel} — ${dist>=1000?(dist/1000).toFixed(1)+' km':Math.round(dist)+' m'}`;
-    document.getElementById('nav-instr-dist').textContent=
-      dAlt!=null?`Dislivello destinazione: ${dAlt>=0?'+':''} ${dAlt} m`:'';
+    // altitude destination
+    document.getElementById('nav-alt-dest').textContent=
+      navDest.ele!=null?Math.round(navDest.ele):'—';
+
+    // update arrow (compass-based if available)
+    updateArrow();
 
     // arrived?
     if(dist<20){ showToast('🎯 Destinazione raggiunta!'); navStop(); }
@@ -1086,11 +1138,7 @@ async function navCalcRoute(){
   }catch(e){}
 }
 
-function setArrow(bearing){
-  const svg=document.getElementById('nav-arrow-svg');
-  if(bearing===null){svg.style.transform='rotate(0deg)';return;}
-  svg.style.transform=`rotate(${bearing}deg)`;
-}
+// setArrow replaced by updateArrow (compass-based)
 
 function calcBearing(lat1,lon1,lat2,lon2){
   const r=Math.PI/180;
@@ -1100,10 +1148,7 @@ function calcBearing(lat1,lon1,lat2,lon2){
   return ((Math.atan2(y,x)*180/Math.PI)+360)%360;
 }
 
-function updateNavUI(){
-  if(!navDest)return;
-  document.getElementById('nav-dest-name').textContent=navDest.name;
-}
+
 
 // ═══════════════ OFFLINE — DOPPIA SOLUZIONE ══════════════════════════════════════
 // Mapbox: caching automatico tile già visitate (via service worker)
@@ -1122,7 +1167,7 @@ function toggleOsmLayer(){
   if(!map4.loaded()){showToast('Mappa non ancora pronta');return;}
   osmLayerActive = !osmLayerActive;
   const btn = document.getElementById('btn-osm-layer');
-  const badge = document.getElementById('osm-layer-badge');
+  const badge = document.getElementById('osm-layer-badge'); if(!badge) return;
 
   if(osmLayerActive){
     btn.classList.add('active');
@@ -1167,9 +1212,9 @@ function restoreOsmLayerAfterStyleLoad(){
 
 async function cacheOsmArea(){
   if(!('caches' in window)){showToast('Cache non disponibile nel browser');return;}
-  const bounds = map4.getBounds();
+  const bounds = map1.getBounds();
   // Cache 3 zoom levels: current-1, current, current+1 (cap at 17)
-  const baseZoom = Math.round(map4.getZoom());
+  const baseZoom = Math.round(map1.getZoom());
   const zooms = [baseZoom-1, baseZoom, baseZoom+1].map(z=>Math.max(1,Math.min(17,z)));
 
   let allTiles = [];
@@ -1543,7 +1588,7 @@ function showToast(msg){
 }
 
 document.addEventListener('click',e=>{
-  ['poi-sdrop','draw-sdrop','nav-sdrop'].forEach(id=>{
+  ['poi-sdrop','draw-sdrop'].forEach(id=>{
     const el=document.getElementById(id);
     if(el&&el.style.display!=='none'&&!el.parentElement?.contains(e.target))
       el.style.display='none';
