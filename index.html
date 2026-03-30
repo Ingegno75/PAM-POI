@@ -109,6 +109,10 @@ td.name-cell{max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:
   padding:2px 5px;border-radius:4px;transition:color .15s;}
 .del-btn:hover{color:var(--warn);}
 .empty{text-align:center;padding:16px;color:var(--text-dim);font-size:12px;}
+.wp-name-input{background:transparent;border:none;color:var(--text);font-family:'Outfit',sans-serif;
+  font-size:12px;width:100%;outline:none;padding:0;cursor:text;}
+.wp-name-input:focus{color:var(--accent);border-bottom:1px solid var(--accent);}
+.wp-name-input::placeholder{color:var(--text-dim);}
 .track-btn{background:var(--surface3);border:none;color:var(--accent);font-size:11px;
   cursor:pointer;padding:3px 7px;border-radius:4px;font-family:'IBM Plex Mono',monospace;}
 .gps-badge{display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:600;
@@ -213,13 +217,14 @@ canvas#elev-canvas{width:100%;height:200px;display:block;border-radius:var(--r);
 .mb-dot{width:14px;height:14px;border-radius:50%;border:2px solid #fff;cursor:pointer;
   box-shadow:0 0 6px rgba(0,0,0,.5);}
 
-/* TOAST */
-.toast{position:fixed;bottom:calc(var(--safe-bot)+12px);left:50%;
-  transform:translateX(-50%) translateY(60px);background:var(--surface2);border:1px solid var(--border);
-  color:var(--text);padding:7px 14px;border-radius:20px;font-size:12px;font-weight:500;z-index:10000;
-  transition:transform .3s cubic-bezier(.34,1.56,.64,1);pointer-events:none;white-space:nowrap;
-  box-shadow:0 4px 20px rgba(0,0,0,.5);}
-.toast.show{transform:translateX(-50%) translateY(0);}
+/* TOAST — centro schermo */
+.toast{position:fixed;top:50%;left:50%;
+  transform:translate(-50%,-50%) scale(.85);opacity:0;
+  background:rgba(22,27,34,.95);border:1px solid var(--border);
+  color:var(--text);padding:10px 20px;border-radius:12px;font-size:14px;font-weight:600;
+  z-index:10000;transition:transform .2s ease,opacity .2s ease;pointer-events:none;
+  white-space:nowrap;box-shadow:0 8px 32px rgba(0,0,0,.6);text-align:center;}
+.toast.show{transform:translate(-50%,-50%) scale(1);opacity:1;}
 </style>
 </head>
 <body>
@@ -550,7 +555,7 @@ function setStyle(style){
 
   map1.once('style.load', ()=>{ render(); });
   map2.once('style.load', ()=>{ map2Ready=true; tracks.forEach((_,i)=>addTrackToMap2(i)); });
-  map3.once('style.load', ()=>{ map3DrawReady=true; initDrawLayers(); drawRenderWpMarkers(); redrawRoute(); });
+  map3.once('style.load', ()=>{ map3DrawReady=true; initDrawLayers(); drawRenderWpMarkers(); redrawRoute(); tracks.forEach((_,i)=>addTrackToMap3(i)); });
   map4.once('style.load', ()=>{ navMapReady=true; restoreOsmLayerAfterStyleLoad(); map4.addSource(navRouteSrc,{type:'geojson',data:{type:'Feature',geometry:{type:'LineString',coordinates:[]}}});map4.addLayer({id:navRouteLay,type:'line',source:navRouteSrc,paint:{'line-color':'#58a6ff','line-width':4,'line-opacity':.85}}); });
 }
 
@@ -567,6 +572,7 @@ function showScreen(s){
     setTimeout(()=>{
       map3.resize();
       drawRenderWpMarkers();
+      tracks.forEach((_,i)=>addTrackToMap3(i));
       const sel=waypoints.filter(w=>w.sel);
       if(sel.length>0){
         const lngs=sel.map(w=>w.lon), lats=sel.map(w=>w.lat);
@@ -645,9 +651,14 @@ function renderPoiTable(){
   waypoints.forEach((w,i)=>{
     const isRef=(document.getElementById('ref-sel').value===`wp:${i}`);
     const d=!isRef&&ref?haversDist(ref.lat,ref.lon,w.lat,w.lon):null;
-    rows.push(`<tr class="${w.sel?'sel':''}" onclick="togglePoi(${i})">
-      <td><input type="checkbox" ${w.sel?'checked':''} onclick="event.stopPropagation();togglePoi(${i})"></td>
-      <td class="name-cell" title="${escAttr(w.name)}">${escH(w.name)}</td>
+    rows.push(`<tr class="${w.sel?'sel':''}">
+      <td><input type="checkbox" ${w.sel?'checked':''} onchange="togglePoi(${i})"></td>
+      <td style="max-width:160px;padding:4px 8px;">
+        <input class="wp-name-input" value="${escAttr(w.name)}"
+          onchange="renameWp(${i},this.value)"
+          onclick="event.stopPropagation()"
+          title="Clicca per modificare il nome">
+      </td>
       <td class="mono">${w.ele!=null?Math.round(w.ele):'—'}</td>
       <td class="mono">${d!=null?fmtDist(d):'—'}</td>
       <td><button class="del-btn" onclick="event.stopPropagation();delPoi(${i})">✕</button></td></tr>`);
@@ -656,6 +667,13 @@ function renderPoiTable(){
 }
 
 function togglePoi(i){waypoints[i].sel=!waypoints[i].sel;render();}
+function renameWp(i,newName){
+  const n=newName.trim();
+  if(!n)return;
+  waypoints[i].name=n;
+  updateRefSelect();  // refresh distance-from selector
+  save();
+}
 function delPoi(i){waypoints.splice(i,1);render();}
 function toggleGpsSel(){if(gpsPos){gpsPos.sel=!gpsPos.sel;renderPoiTable();}}
 function save(){localStorage.setItem('pam_wp',JSON.stringify(waypoints));}
@@ -804,8 +822,41 @@ function importTrack(name,trkEl){
   if(!pts.length)return;
   const len=calcLen(pts);
   const idx=tracks.length;
-  tracks.push({name,pts,len});
+  tracks.push({name,pts,len,onMap3:true});  // visible on Crea Traccia by default
   addTrackToMap2(idx);
+  addTrackToMap3(idx);
+  renderTrackTable();
+}
+
+function addTrackToMap3(idx){
+  if(idx<0||idx>=tracks.length)return;
+  const t=tracks[idx];
+  if(!t.onMap3)return;
+  const srcId=`m3-trk-src-${idx}`, layId=`m3-trk-lay-${idx}`;
+  const geojson={type:'Feature',geometry:{type:'LineString',coordinates:t.pts.map(p=>[p.lon,p.lat])}};
+  const doAdd=()=>{
+    if(map3.getSource(srcId)){map3.removeLayer(layId);map3.removeSource(srcId);}
+    map3.addSource(srcId,{type:'geojson',data:geojson});
+    map3.addLayer({id:layId,type:'line',source:srcId,
+      paint:{'line-color':'#e3b341','line-width':2,'line-opacity':.7,'line-dasharray':[4,2]}},
+      // insert below the draw route layer if it exists
+      map3.getLayer('draw-route-lay')?'draw-route-lay':undefined
+    );
+  };
+  if(map3DrawReady)doAdd(); else map3DrawPending.push(doAdd);
+}
+
+function removeTrackFromMap3(idx){
+  const srcId=`m3-trk-src-${idx}`, layId=`m3-trk-lay-${idx}`;
+  if(map3.getLayer(layId))map3.removeLayer(layId);
+  if(map3.getSource(srcId))map3.removeSource(srcId);
+}
+
+function toggleTrackOnMap3(idx){
+  if(idx<0||idx>=tracks.length)return;
+  tracks[idx].onMap3=!tracks[idx].onMap3;
+  if(tracks[idx].onMap3) addTrackToMap3(idx);
+  else removeTrackFromMap3(idx);
   renderTrackTable();
 }
 
@@ -830,7 +881,11 @@ function renderTrackTable(){
     <td class="name-cell" title="${escAttr(t.name)}">${escH(t.name)}</td>
     <td class="mono">${fmtDist(t.len)}</td>
     <td class="mono">${t.pts.length}</td>
-    <td><button class="track-btn" onclick="openElev(${i})">📈 Profilo</button></td>
+    <td><button class="track-btn" onclick="openElev(${i})">📈</button></td>
+    <td><button class="track-btn ${t.onMap3?'trk-on-m3':''}" onclick="toggleTrackOnMap3(${i})"
+      title="${t.onMap3?'Visibile in Crea Traccia':'Non visibile in Crea Traccia'}"
+      style="${t.onMap3?'color:var(--amber)':''}"
+      >🗺</button></td>
     <td><button class="del-btn" onclick="delTrack(${i})">✕</button></td>
   </tr>`).join('');
 }
@@ -839,8 +894,8 @@ function delTrack(i){
   const srcId=`trk-src-${i}`,layId=`trk-lay-${i}`;
   if(map2.getLayer(layId)) map2.removeLayer(layId);
   if(map2.getSource(srcId)) map2.removeSource(srcId);
+  removeTrackFromMap3(i);
   tracks.splice(i,1);
-  // rebuild remaining layers with new indices
   renderTrackTable();
 }
 function clearTracks(){
@@ -850,6 +905,7 @@ function clearTracks(){
     const srcId=`trk-src-${i}`,layId=`trk-lay-${i}`;
     if(map2.getLayer(layId)) map2.removeLayer(layId);
     if(map2.getSource(srcId)) map2.removeSource(srcId);
+    removeTrackFromMap3(i);
   });
   tracks=[]; renderTrackTable();
 }
@@ -1655,7 +1711,7 @@ function dlBlob(content,name,type){
 let toastTimer;
 function showToast(msg){
   const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');
-  clearTimeout(toastTimer);toastTimer=setTimeout(()=>t.classList.remove('show'),2600);
+  clearTimeout(toastTimer);toastTimer=setTimeout(()=>t.classList.remove('show'),2000);
 }
 
 document.addEventListener('click',e=>{
@@ -1670,6 +1726,42 @@ document.addEventListener('click',e=>{
 if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{});
 // render() is called after map1 'load' event
 drawUpdateStatus();
+
+// ── GARMIN / URL parameter import ─────────────────────────────────────────────
+// Accepts: ?lat=XX&lon=YY&ele=ZZ&name=LABEL&src=garmin
+// Called by the iOS Shortcut companion when Garmin sends a waypoint
+function handleUrlParams(){
+  const p = new URLSearchParams(window.location.search);
+  const lat = parseFloat(p.get('lat'));
+  const lon = parseFloat(p.get('lon'));
+  const ele = p.get('ele') ? parseFloat(p.get('ele')) : null;
+  const name = p.get('name') || p.get('n') || null;
+  const src  = p.get('src') || '';
+
+  if(isNaN(lat) || isNaN(lon)) return;  // nothing to do
+
+  // Build WP name: use provided name, or auto-generate from source + timestamp
+  const ts = new Date();
+  const pad = n => String(n).padStart(2,'0');
+  const dateStr = `${ts.getFullYear()}${pad(ts.getMonth()+1)}${pad(ts.getDate())}_${pad(ts.getHours())}${pad(ts.getMinutes())}`;
+  const wpName = name ? decodeURIComponent(name) : (src==='garmin' ? `Garmin_${dateStr}` : `WP_${dateStr}`);
+
+  // Wait for map to be ready, then add the waypoint
+  const addWp = () => {
+    waypoints.push({name:wpName, lat, lon, ele, sel:true});
+    map1.flyTo({center:[lon, lat], zoom:14});
+    render();
+    // Clean URL so refresh doesn't re-add the same point
+    window.history.replaceState({}, '', window.location.pathname);
+    showToast(`📍 ${wpName} aggiunto da ${src==='garmin'?'Garmin':'URL'} ✓`);
+  };
+
+  // If map1 is not loaded yet, wait for it
+  if(map1.loaded()) addWp();
+  else map1.once('load', addWp);
+}
+
+handleUrlParams();
 </script>
 </body>
 </html>
