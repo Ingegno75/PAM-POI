@@ -535,6 +535,8 @@ map3.on('load', ()=>{
   map3DrawReady=true;
   initDrawLayers();
   map3DrawPending.forEach(fn=>fn()); map3DrawPending=[];
+  // Add any tracks already imported before map3 was ready
+  tracks.forEach((_,i)=>addTrackToMap3(i));
 });
 
 // ═══════════════ STYLE SWITCHER ═════════════════════════════════════════════════
@@ -829,21 +831,38 @@ function importTrack(name,trkEl){
 }
 
 function addTrackToMap3(idx){
-  if(idx<0||idx>=tracks.length)return;
+  if(idx<0||idx>=tracks.length) return;
   const t=tracks[idx];
-  if(!t.onMap3)return;
+  if(!t.onMap3) return;
   const srcId=`m3-trk-src-${idx}`, layId=`m3-trk-lay-${idx}`;
-  const geojson={type:'Feature',geometry:{type:'LineString',coordinates:t.pts.map(p=>[p.lon,p.lat])}};
+  const geojson={type:'Feature',geometry:{type:'LineString',
+    coordinates:t.pts.map(p=>[p.lon,p.lat])}};
+
   const doAdd=()=>{
-    if(map3.getSource(srcId)){map3.removeLayer(layId);map3.removeSource(srcId);}
+    // Remove existing if present
+    try{ if(map3.getLayer(layId)) map3.removeLayer(layId); }catch(e){}
+    try{ if(map3.getSource(srcId)) map3.removeSource(srcId); }catch(e){}
     map3.addSource(srcId,{type:'geojson',data:geojson});
-    map3.addLayer({id:layId,type:'line',source:srcId,
-      paint:{'line-color':'#e3b341','line-width':2,'line-opacity':.7,'line-dasharray':[4,2]}},
-      // insert below the draw route layer if it exists
-      map3.getLayer('draw-route-lay')?'draw-route-lay':undefined
-    );
+    // Add layer — insert BEFORE the draw route line so the drawn line stays on top
+    const before = map3.getLayer('draw-route-lay') ? 'draw-route-lay' : null;
+    if(before){
+      map3.addLayer({id:layId,type:'line',source:srcId,
+        paint:{'line-color':'#e3b341','line-width':2.5,'line-opacity':.75,
+               'line-dasharray':[4,3]}}, before);
+    } else {
+      map3.addLayer({id:layId,type:'line',source:srcId,
+        paint:{'line-color':'#e3b341','line-width':2.5,'line-opacity':.75,
+               'line-dasharray':[4,3]}});
+    }
   };
-  if(map3DrawReady)doAdd(); else map3DrawPending.push(doAdd);
+
+  // map3 may be loaded but style not yet ready, or style may have reloaded
+  if(map3DrawReady){
+    doAdd();
+  } else {
+    // Store for when map3 finishes loading
+    map3DrawPending.push(doAdd);
+  }
 }
 
 function removeTrackFromMap3(idx){
