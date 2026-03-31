@@ -319,9 +319,10 @@ canvas#elev-canvas{width:100%;height:200px;display:block;border-radius:var(--r);
         <table>
           <thead><tr>
             <th>Nome traccia</th>
-            <th style="width:88px">Lunghezza</th>
-            <th style="width:54px">Punti</th>
-            <th style="width:72px">Profilo</th>
+            <th style="width:72px">Lunghezza</th>
+            <th style="width:44px">Punti</th>
+            <th style="width:32px">📈</th>
+            <th style="width:32px">🗺</th>
             <th style="width:20px"></th>
           </tr></thead>
           <tbody id="trk-body"></tbody>
@@ -535,7 +536,6 @@ map3.on('load', ()=>{
   map3DrawReady=true;
   initDrawLayers();
   map3DrawPending.forEach(fn=>fn()); map3DrawPending=[];
-  // Add any tracks already imported before map3 was ready
   tracks.forEach((_,i)=>addTrackToMap3(i));
 });
 
@@ -571,17 +571,34 @@ function showScreen(s){
   if(s==='trk') setTimeout(()=>map2.resize(),60);
   if(s==='nav') setTimeout(()=>{ map4.resize(); checkOsmCache(); renderNavMapMarkers(); },60);
   if(s==='route'){
+    // Give the DOM time to make the container visible, then resize + populate
     setTimeout(()=>{
       map3.resize();
-      drawRenderWpMarkers();
-      tracks.forEach((_,i)=>addTrackToMap3(i));
-      const sel=waypoints.filter(w=>w.sel);
-      if(sel.length>0){
-        const lngs=sel.map(w=>w.lon), lats=sel.map(w=>w.lat);
-        map3.fitBounds([[Math.min(...lngs),Math.min(...lats)],[Math.max(...lngs),Math.max(...lats)]],
-          {padding:40,maxZoom:14});
+
+      const populate=()=>{
+        if(!map3.getSource('draw-route-src')) initDrawLayers();
+        drawRenderWpMarkers();
+        redrawRoute();
+        tracks.forEach((_,i)=>addTrackToMap3(i));
+        const sel=waypoints.filter(w=>w.sel);
+        if(sel.length>0){
+          const lngs=sel.map(w=>w.lon),lats=sel.map(w=>w.lat);
+          map3.fitBounds([[Math.min(...lngs),Math.min(...lats)],
+                         [Math.max(...lngs),Math.max(...lats)]],
+                        {padding:40,maxZoom:14});
+        }
+      };
+
+      if(map3.loaded()){
+        populate();
+      } else {
+        // Container was hidden at startup — map3 never fired 'load'.
+        // A resize() triggers Mapbox to re-check and complete init.
+        map3.once('load', populate);
+        // Nudge again in case resize alone isn't enough
+        setTimeout(()=>{ if(!map3.loaded()) map3.resize(); }, 200);
       }
-    },80);
+    }, 80);
   }
 }
 
@@ -833,42 +850,39 @@ function importTrack(name,trkEl){
 function addTrackToMap3(idx){
   if(idx<0||idx>=tracks.length) return;
   const t=tracks[idx];
-  if(!t.onMap3) return;
+  // onMap3 defaults to true if not set
+  if(t.onMap3===false) return;
+
   const srcId=`m3-trk-src-${idx}`, layId=`m3-trk-lay-${idx}`;
   const geojson={type:'Feature',geometry:{type:'LineString',
     coordinates:t.pts.map(p=>[p.lon,p.lat])}};
+  const paint={'line-color':'#a371f7','line-width':2.5,
+               'line-opacity':.85,'line-dasharray':[4,3]};
 
-  const doAdd=()=>{
-    // Remove existing if present
-    try{ if(map3.getLayer(layId)) map3.removeLayer(layId); }catch(e){}
+  function _do(){
+    try{ if(map3.getLayer(layId))  map3.removeLayer(layId);  }catch(e){}
     try{ if(map3.getSource(srcId)) map3.removeSource(srcId); }catch(e){}
-    map3.addSource(srcId,{type:'geojson',data:geojson});
-    // Add layer — insert BEFORE the draw route line so the drawn line stays on top
-    const before = map3.getLayer('draw-route-lay') ? 'draw-route-lay' : null;
-    if(before){
-      map3.addLayer({id:layId,type:'line',source:srcId,
-        paint:{'line-color':'#e3b341','line-width':2.5,'line-opacity':.75,
-               'line-dasharray':[4,3]}}, before);
-    } else {
-      map3.addLayer({id:layId,type:'line',source:srcId,
-        paint:{'line-color':'#e3b341','line-width':2.5,'line-opacity':.75,
-               'line-dasharray':[4,3]}});
-    }
-  };
+    try{
+      map3.addSource(srcId,{type:'geojson',data:geojson});
+      const before=map3.getLayer('draw-route-lay')?'draw-route-lay':null;
+      if(before) map3.addLayer({id:layId,type:'line',source:srcId,paint},before);
+      else       map3.addLayer({id:layId,type:'line',source:srcId,paint});
+    }catch(e){ console.warn('addTrackToMap3['+idx+']:',e.message); }
+  }
 
-  // map3 may be loaded but style not yet ready, or style may have reloaded
-  if(map3DrawReady){
-    doAdd();
+  if(map3.loaded()){
+    _do();
   } else {
-    // Store for when map3 finishes loading
-    map3DrawPending.push(doAdd);
+    // Map not ready yet — queue and nudge
+    map3DrawPending.push(_do);
+    map3.once('load', ()=>{ _do(); });
   }
 }
 
 function removeTrackFromMap3(idx){
   const srcId=`m3-trk-src-${idx}`, layId=`m3-trk-lay-${idx}`;
-  if(map3.getLayer(layId))map3.removeLayer(layId);
-  if(map3.getSource(srcId))map3.removeSource(srcId);
+  try{ if(map3.getLayer(layId))  map3.removeLayer(layId);  }catch(e){}
+  try{ if(map3.getSource(srcId)) map3.removeSource(srcId); }catch(e){}
 }
 
 function toggleTrackOnMap3(idx){
@@ -896,17 +910,23 @@ function addTrackToMap2(idx){
 function renderTrackTable(){
   const tb=document.getElementById('trk-body');
   if(!tracks.length){tb.innerHTML='<tr><td colspan="5" class="empty">Nessuna traccia importata.</td></tr>';return;}
-  tb.innerHTML=tracks.map((t,i)=>`<tr>
-    <td class="name-cell" title="${escAttr(t.name)}">${escH(t.name)}</td>
-    <td class="mono">${fmtDist(t.len)}</td>
-    <td class="mono">${t.pts.length}</td>
-    <td><button class="track-btn" onclick="openElev(${i})">📈</button></td>
-    <td><button class="track-btn ${t.onMap3?'trk-on-m3':''}" onclick="toggleTrackOnMap3(${i})"
-      title="${t.onMap3?'Visibile in Crea Traccia':'Non visibile in Crea Traccia'}"
-      style="${t.onMap3?'color:var(--amber)':''}"
-      >🗺</button></td>
-    <td><button class="del-btn" onclick="delTrack(${i})">✕</button></td>
-  </tr>`).join('');
+  tb.innerHTML=tracks.map((t,i)=>{
+    const onM3 = t.onMap3!==false; // default true
+    return `<tr>
+      <td class="name-cell" title="${escAttr(t.name)}">${escH(t.name)}</td>
+      <td class="mono">${fmtDist(t.len)}</td>
+      <td class="mono">${t.pts.length}</td>
+      <td style="text-align:center">
+        <button class="track-btn" onclick="openElev(${i})" style="padding:2px 6px;">📈</button>
+      </td>
+      <td style="text-align:center">
+        <button onclick="toggleTrackOnMap3(${i})"
+          style="background:none;border:none;font-size:16px;cursor:pointer;opacity:${onM3?1:.3};padding:0 4px;"
+          title="${onM3?'Visibile in Crea Traccia — clicca per nascondere':'Nascosta — clicca per mostrare in Crea Traccia'}">🗺</button>
+      </td>
+      <td><button class="del-btn" onclick="delTrack(${i})">✕</button></td>
+    </tr>`;
+  }).join('');
 }
 
 function delTrack(i){
