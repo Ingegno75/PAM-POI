@@ -210,12 +210,13 @@ canvas#elev-canvas{width:100%;height:200px;display:block;border-radius:var(--r);
   box-shadow:0 0 6px rgba(0,0,0,.5);}
 
 /* TOAST */
-.toast{position:fixed;bottom:calc(var(--safe-bot)+12px);left:50%;
-  transform:translateX(-50%) translateY(60px);background:var(--surface2);border:1px solid var(--border);
-  color:var(--text);padding:7px 14px;border-radius:20px;font-size:12px;font-weight:500;z-index:10000;
-  transition:transform .3s cubic-bezier(.34,1.56,.64,1);pointer-events:none;white-space:nowrap;
-  box-shadow:0 4px 20px rgba(0,0,0,.5);}
-.toast.show{transform:translateX(-50%) translateY(0);}
+.toast{position:fixed;top:50%;left:50%;
+  transform:translate(-50%,-50%) scale(.85);opacity:0;
+  background:rgba(22,27,34,.95);border:1px solid var(--border);
+  color:var(--text);padding:10px 20px;border-radius:12px;font-size:14px;font-weight:600;
+  z-index:10000;transition:transform .2s ease,opacity .2s ease;pointer-events:none;
+  white-space:nowrap;box-shadow:0 8px 32px rgba(0,0,0,.6);}
+.toast.show{transform:translate(-50%,-50%) scale(1);opacity:1;}
 </style>
 </head>
 <body>
@@ -367,62 +368,40 @@ canvas#elev-canvas{width:100%;height:200px;display:block;border-radius:var(--r);
 <div class="screen" id="scr-nav">
   <div class="topbar">
     <div class="logo">PAM · Naviga</div>
-    <div style="position:relative;flex:1;min-width:140px;">
-      <input id="nav-search" class="picker-input" placeholder="🔍 Cerca destinazione…" autocomplete="off"
-        oninput="liveSearch('nav-search','nav-sdrop',null)"
-        onkeydown="if(event.key==='Enter'){navSearchGo();closeDrop('nav-sdrop')}">
-      <div class="sdrop" id="nav-sdrop"></div>
-    </div>
-    <button class="btn btn-dim btn-sm" onclick="navPickMode()" id="btn-nav-pick" title="Scegli sulla mappa">🖱</button>
     <div class="tile-toggle">
-      <button class="tile-btn active" data-tile="outdoors" onclick="setStyle('outdoors')" title="Mapbox Outdoor">🥾</button>
-      <button class="tile-btn" data-tile="streets" onclick="setStyle('streets')" title="Mapbox Stradale">🚗</button>
-      <button class="tile-btn" id="btn-osm-layer" onclick="toggleOsmLayer()" title="OSM offline scaricabile">📡</button>
+      <button class="tile-btn active" data-tile="outdoors" onclick="setStyle('outdoors')" title="Outdoor">🥾</button>
+      <button class="tile-btn" data-tile="streets" onclick="setStyle('streets')" title="Stradale">🚗</button>
     </div>
+    <button class="btn btn-amber btn-sm" onclick="requestCompassPermission()" id="btn-compass-req">🧭 Bussola</button>
+    <button class="btn btn-red btn-sm" onclick="navClear()" id="btn-nav-stop" style="display:none;">⏹ Stop</button>
   </div>
 
   <div class="nav-screen-layout">
-    <!-- offline cache bar -->
-    <div class="offline-bar">
-      <div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap;width:100%;">
-        <span id="osm-layer-badge" style="font-family:'IBM Plex Mono',monospace;font-size:10px;
-          background:var(--surface3);padding:2px 7px;border-radius:4px;color:var(--text-dim);">
-          🗺 Mapbox (online)
-        </span>
-        <progress id="cache-progress" value="0" max="100"
-          style="display:none;flex:1;height:4px;border-radius:2px;accent-color:var(--accent2);min-width:60px;"></progress>
-        <span id="cache-status" style="font-family:'IBM Plex Mono',monospace;font-size:10px;
-          color:var(--text-dim);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
-          Nessuna area salvata
-        </span>
-        <button class="btn btn-dim btn-sm" onclick="cacheOsmArea()" title="Scarica OSM area visibile per uso offline">
-          💾 Scarica OSM
-        </button>
-        <button class="btn btn-red btn-sm" onclick="clearOsmCache()" title="Cancella OSM salvato">🗑</button>
-      </div>
-    </div>
+    <!-- mappa: waypoint selezionati come marker rossi — tocca per navigare -->
+    <div class="nav-map-wrap"><div id="nav-map"></div></div>
 
-    <div class="nav-map-wrap"><div id="nav-map"></div>
-      <div class="map-hint" id="nav-map-hint">Clicca sulla mappa per scegliere la destinazione</div>
-    </div>
-
+    <!-- pannello: freccia + stats -->
     <div class="nav-panel">
-      <!-- compass + istruzione -->
-      <div class="nav-compass">
-        <div class="nav-arrow-wrap">
-          <svg id="nav-arrow-svg" viewBox="0 0 72 72" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <circle cx="36" cy="36" r="34" fill="#21262d" stroke="#30363d" stroke-width="2"/>
-            <polygon points="36,8 44,52 36,44 28,52" fill="#58a6ff"/>
-            <polygon points="36,64 44,20 36,28 28,20" fill="#30363d"/>
-          </svg>
-        </div>
-        <div class="nav-instruction">
-          <div class="nav-instruction-text" id="nav-instr-text">Nessuna destinazione</div>
-          <div class="nav-instruction-dist" id="nav-instr-dist"></div>
+      <div style="display:flex;align-items:center;padding:10px 12px 6px;gap:16px;">
+        <!-- freccia bussola -->
+        <svg id="nav-arrow-svg" viewBox="0 0 96 96" fill="none" xmlns="http://www.w3.org/2000/svg"
+          style="width:80px;height:80px;flex-shrink:0;transition:transform .15s ease-out;">
+          <circle cx="48" cy="48" r="46" fill="#21262d" stroke="#30363d" stroke-width="2"/>
+          <text x="48" y="18" text-anchor="middle" fill="#8b949e" font-size="10" font-family="IBM Plex Mono,monospace">N</text>
+          <polygon points="48,22 57,68 48,60 39,68" fill="#58a6ff"/>
+          <polygon points="48,74 57,28 48,36 39,28" fill="#30363d"/>
+          <circle cx="48" cy="48" r="4" fill="#58a6ff"/>
+        </svg>
+        <div style="flex:1;min-width:0;">
+          <div id="nav-dest-name" style="font-size:13px;font-weight:600;color:var(--text);
+            white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:4px;">
+            Tocca un waypoint sulla mappa
+          </div>
+          <div id="nav-dir-label" style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--text-dim);">—</div>
         </div>
       </div>
-      <!-- stats -->
-      <div class="nav-stats">
+      <!-- 4 stat boxes -->
+      <div class="nav-stats" style="grid-template-columns:1fr 1fr 1fr 1fr;">
         <div class="nav-stat">
           <div class="nav-stat-label">DISTANZA</div>
           <div class="nav-stat-val" id="nav-dist">—</div>
@@ -434,16 +413,15 @@ canvas#elev-canvas{width:100%;height:200px;display:block;border-radius:var(--r);
           <div class="nav-stat-unit">m</div>
         </div>
         <div class="nav-stat">
-          <div class="nav-stat-label">VELOCITÀ</div>
-          <div class="nav-stat-val" id="nav-speed">—</div>
-          <div class="nav-stat-unit">km/h</div>
+          <div class="nav-stat-label">QUOTA TU</div>
+          <div class="nav-stat-val" id="nav-alt-you">—</div>
+          <div class="nav-stat-unit">m</div>
         </div>
-      </div>
-      <!-- dest bar + controls -->
-      <div class="nav-dest-bar">
-        <span class="nav-dest-name" id="nav-dest-name">Nessuna destinazione selezionata</span>
-        <button class="btn btn-blue btn-sm" id="btn-nav-start" onclick="navToggle()">▶ Avvia</button>
-        <button class="btn btn-red btn-sm" onclick="navClear()">✕ Cancella</button>
+        <div class="nav-stat">
+          <div class="nav-stat-label">QUOTA DEST</div>
+          <div class="nav-stat-val" id="nav-alt-dest">—</div>
+          <div class="nav-stat-unit">m</div>
+        </div>
       </div>
     </div>
   </div>
@@ -553,8 +531,7 @@ function render(){
   poiMarkers.forEach(m=>map1.removeLayer(m));poiMarkers=[];
   waypoints.forEach((w,i)=>{
     const m=L.marker([w.lat,w.lon],{icon:makeDot(w.sel?'#ff6b00':'#e03030',w.sel?17:14)}).addTo(map1);
-    m.bindPopup(`<b>${escH(w.name)}</b><br><small>${w.lat.toFixed(5)}, ${w.lon.toFixed(5)}</small>`);
-    m.on('click',()=>{if(mapClickMode)return;w.sel=!w.sel;render();});
+    m.on('click',e=>{L.DomEvent.stopPropagation(e);if(mapClickMode)return;w.sel=!w.sel;render();});
     poiMarkers.push(m);
   });
   renderPoiTable();updateRefSelect();save();
@@ -700,7 +677,7 @@ function addTrackToMap3(idx){
   if(idx<0||idx>=tracks.length)return;
   const t=tracks[idx];if(t.onMap3===false)return;
   if(trkLayers3[idx]){try{map3.removeLayer(trkLayers3[idx]);}catch(e){}}
-  trkLayers3[idx]=L.polyline(t.pts.map(p=>[p.lat,p.lon]),{color:'#a371f7',weight:2.5,opacity:.85,dashArray:'8 5'}).addTo(map3);
+  trkLayers3[idx]=L.polyline(t.pts.map(p=>[p.lat,p.lon]),{color:'#a371f7',weight:5,opacity:.9}).addTo(map3);
 }
 function removeTrackFromMap3(idx){if(trkLayers3[idx]){try{map3.removeLayer(trkLayers3[idx]);}catch(e){}delete trkLayers3[idx];}}
 function addTrackToMap2(idx){}  // no-op for OSM version
@@ -883,9 +860,9 @@ function renderNavMapMarkers(){
   navWpMarkers4.forEach(m=>map4.removeLayer(m));navWpMarkers4=[];
   waypoints.filter(w=>w.sel).forEach((w)=>{
     const isActive=navDest&&navDest._idx===waypoints.indexOf(w);
-    const m=L.marker([w.lat,w.lon],{icon:makeDot(isActive?'#f85149':'#e03030',isActive?20:14)}).addTo(map4)
-      .bindPopup(`<b>${escH(w.name)}</b>${w.ele!=null?'<br>'+Math.round(w.ele)+' m slm':''}<br><small style="color:#3fb950">Tocca per navigare</small>`);
-    m.on('click',()=>navSelectWp(waypoints.indexOf(w)));navWpMarkers4.push(m);
+    const m=L.marker([w.lat,w.lon],{icon:makeDot(isActive?'#f85149':'#e03030',isActive?20:14)}).addTo(map4);
+    m.on('click',e=>{L.DomEvent.stopPropagation(e);navSelectWp(waypoints.indexOf(w));});
+    navWpMarkers4.push(m);
   });
   if(!navActive){const sel=waypoints.filter(w=>w.sel);
     if(sel.length===1)map4.setView([sel[0].lat,sel[0].lon],13);
@@ -903,7 +880,7 @@ async function navSelectWp(i){
   if(navLastPos){
     map4.fitBounds([[Math.min(navLastPos.lat,w.lat),Math.min(navLastPos.lon,w.lon)],[Math.max(navLastPos.lat,w.lat),Math.max(navLastPos.lon,w.lon)]],{padding:[60,60],maxZoom:16});
   }else map4.setView([w.lat,w.lon],13);
-  renderNavMapMarkers();navStart();showToast(`Navigazione verso: ${w.name}`);
+  navStart();showToast(`Navigazione verso: ${w.name}`);
 }
 function navClear(){
   navStop();navDest=null;if(navDestMarker){map4.removeLayer(navDestMarker);navDestMarker=null;}

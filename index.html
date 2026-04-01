@@ -109,6 +109,10 @@ td.name-cell{max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:
   padding:2px 5px;border-radius:4px;transition:color .15s;}
 .del-btn:hover{color:var(--warn);}
 .empty{text-align:center;padding:16px;color:var(--text-dim);font-size:12px;}
+.wp-name-input{background:transparent;border:none;color:var(--text);font-family:'Outfit',sans-serif;
+  font-size:12px;width:100%;outline:none;padding:0;cursor:text;}
+.wp-name-input:focus{color:var(--accent);border-bottom:1px solid var(--accent);}
+.wp-name-input::placeholder{color:var(--text-dim);}
 .track-btn{background:var(--surface3);border:none;color:var(--accent);font-size:11px;
   cursor:pointer;padding:3px 7px;border-radius:4px;font-family:'IBM Plex Mono',monospace;}
 .gps-badge{display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:600;
@@ -213,13 +217,14 @@ canvas#elev-canvas{width:100%;height:200px;display:block;border-radius:var(--r);
 .mb-dot{width:14px;height:14px;border-radius:50%;border:2px solid #fff;cursor:pointer;
   box-shadow:0 0 6px rgba(0,0,0,.5);}
 
-/* TOAST */
-.toast{position:fixed;bottom:calc(var(--safe-bot)+12px);left:50%;
-  transform:translateX(-50%) translateY(60px);background:var(--surface2);border:1px solid var(--border);
-  color:var(--text);padding:7px 14px;border-radius:20px;font-size:12px;font-weight:500;z-index:10000;
-  transition:transform .3s cubic-bezier(.34,1.56,.64,1);pointer-events:none;white-space:nowrap;
-  box-shadow:0 4px 20px rgba(0,0,0,.5);}
-.toast.show{transform:translateX(-50%) translateY(0);}
+/* TOAST — centro schermo */
+.toast{position:fixed;top:50%;left:50%;
+  transform:translate(-50%,-50%) scale(.85);opacity:0;
+  background:rgba(22,27,34,.95);border:1px solid var(--border);
+  color:var(--text);padding:10px 20px;border-radius:12px;font-size:14px;font-weight:600;
+  z-index:10000;transition:transform .2s ease,opacity .2s ease;pointer-events:none;
+  white-space:nowrap;box-shadow:0 8px 32px rgba(0,0,0,.6);text-align:center;}
+.toast.show{transform:translate(-50%,-50%) scale(1);opacity:1;}
 </style>
 </head>
 <body>
@@ -227,7 +232,8 @@ canvas#elev-canvas{width:100%;height:200px;display:block;border-radius:var(--r);
 <!-- NAV -->
 <nav>
   <button class="nav-btn active" id="nb-poi" onclick="showScreen('poi')"><span class="ni">📍</span>Waypoint</button>
-  <button class="nav-btn" id="nb-trk" onclick="showScreen('trk')"><span class="ni">〰</span>Traccia</button>
+  <button class="nav-btn" id="nb-trk" onclick="showScreen('trk')"><span class="ni">〰</span>Tracce</button>
+  <button class="nav-btn" id="nb-route" onclick="showScreen('route')"><span class="ni">🗺</span>Crea Traccia</button>
   <button class="nav-btn" id="nb-nav" onclick="showScreen('nav')"><span class="ni">🧭</span>Naviga</button>
 </nav>
 
@@ -255,6 +261,16 @@ canvas#elev-canvas{width:100%;height:200px;display:block;border-radius:var(--r);
   <div class="map-wrap"><div id="map"></div>
   </div>
   <div class="bottom-panel">
+    <div class="offline-bar" id="poi-offline-bar">
+      <progress id="cache-progress" value="0" max="100"
+        style="display:none;flex:1;height:4px;border-radius:2px;accent-color:var(--accent2);min-width:60px;"></progress>
+      <span id="cache-status" style="font-family:'IBM Plex Mono',monospace;font-size:10px;
+        color:var(--text-dim);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+        Nessuna area OSM salvata
+      </span>
+      <button class="btn btn-dim btn-sm" onclick="cacheOsmArea()" title="Scarica mappa OSM area visibile per uso offline">💾 OSM offline</button>
+      <button class="btn btn-red btn-sm" onclick="clearOsmCache()" style="padding:4px 6px;">🗑</button>
+    </div>
     <div class="ref-bar">
       <span class="ref-label">Distanza da:</span>
       <select class="ref-sel" id="ref-sel" onchange="renderPoiTable()">
@@ -283,33 +299,62 @@ canvas#elev-canvas{width:100%;height:200px;display:block;border-radius:var(--r);
 </div>
 
 <!-- ══ SCREEN: TRACCE ══ -->
-<!-- trk-map kept hidden (map2 still initialised to avoid JS errors) -->
-<div style="display:none;"><div id="trk-map"></div></div>
-
-<!-- ══ SCREEN: TRACCIA (disegno + importazione) ══ -->
 <div class="screen" id="scr-trk">
-  <div class="route-layout">
+  <div class="topbar">
+    <div class="logo">PAM · Tracce</div>
+    <div class="tile-toggle">
+      <button class="tile-btn active" data-tile="outdoors" onclick="setStyle('outdoors')" title="Outdoor">🥾</button>
+      <button class="tile-btn" data-tile="streets" onclick="setStyle('streets')" title="Stradale">🚗</button>
+    </div>
+  </div>
+  <div class="trk-screen-layout">
+    <div class="trk-map-wrap"><div id="trk-map"></div></div>
+    <div class="trk-table-panel">
+      <div class="toolbar">
+        <label class="btn btn-dim btn-sm" for="trk-file-input">📂 Importa traccia GPX</label>
+        <input type="file" id="trk-file-input" accept=".gpx" style="display:none">
+        <button class="btn btn-red btn-sm" onclick="clearTracks()">🗑 Rimuovi tutte</button>
+      </div>
+      <div class="panel-body">
+        <table>
+          <thead><tr>
+            <th>Nome traccia</th>
+            <th style="width:72px">Lunghezza</th>
+            <th style="width:44px">Punti</th>
+            <th style="width:32px">📈</th>
+            <th style="width:32px">🗺</th>
+            <th style="width:20px"></th>
+          </tr></thead>
+          <tbody id="trk-body"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
 
-    <!-- top info bar: traccia in disegno -->
+<!-- ══ SCREEN: CREA TRACCIA ══ -->
+<div class="screen" id="scr-route">
+  <div class="route-layout">
+    <!-- info panel -->
     <div style="display:flex;align-items:center;gap:8px;padding:6px 10px;
       background:var(--surface2);border-bottom:1px solid var(--border);flex-shrink:0;flex-wrap:wrap;">
       <input id="draw-name" value="Nuova traccia"
         style="background:var(--bg);border:1px solid var(--border);border-radius:var(--r);
           color:var(--text);font-family:'Outfit',sans-serif;font-size:13px;font-weight:600;
-          padding:5px 9px;outline:none;min-width:100px;flex:1;max-width:200px;"
+          padding:5px 9px;outline:none;min-width:120px;flex:1;max-width:220px;"
         onfocus="this.style.borderColor='var(--accent)'"
         onblur="this.style.borderColor='var(--border)'">
-      <span class="draw-stat" id="di-pts">— pt</span>
-      <span class="draw-stat" id="di-len">—</span>
-      <span class="draw-stat" id="di-dp" style="color:var(--accent2)">D+ —</span>
-      <span class="draw-stat" id="di-dm" style="color:var(--warn)">D− —</span>
-      <button class="btn btn-dim btn-sm" id="btn-draw-elev" onclick="openDrawElev()" style="display:none;" title="Profilo altimetrico traccia corrente">📈</button>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;flex:1;">
+        <span class="draw-stat" id="di-pts">— pt</span>
+        <span class="draw-stat" id="di-len">—</span>
+        <span class="draw-stat" id="di-dp" style="color:var(--accent2)">D+ —</span>
+        <span class="draw-stat" id="di-dm" style="color:var(--warn)">D− —</span>
+      </div>
     </div>
-
-    <!-- toolbar: disegno + importa -->
+    <!-- toolbar -->
     <div class="route-config">
-      <div class="route-row" style="flex-wrap:wrap;gap:5px;">
-        <div style="position:relative;flex:1;min-width:140px;">
+      <div class="route-row" style="flex-wrap:wrap;gap:6px;">
+        <div style="position:relative;flex:1;min-width:160px;">
           <input class="picker-input" id="draw-search" placeholder="🔍 Cerca punto di partenza…"
             autocomplete="off"
             oninput="liveSearch('draw-search','draw-sdrop',null)"
@@ -328,105 +373,63 @@ canvas#elev-canvas{width:100%;height:200px;display:block;border-radius:var(--r);
         </div>
         <button class="btn btn-dim btn-sm" onclick="drawUndo()">↩ Undo</button>
         <button class="btn btn-red btn-sm" onclick="drawClear()">🗑 Reset</button>
-        <button class="btn btn-green btn-sm" onclick="drawExport()">⬇ Esporta</button>
-        <label class="btn btn-dim btn-sm" for="trk-file-input" style="margin-left:4px;">📂 Importa GPX</label>
-        <input type="file" id="trk-file-input" accept=".gpx" style="display:none">
+        <button class="btn btn-green btn-sm" onclick="drawExport()">⬇ Esporta GPX</button>
       </div>
     </div>
-
-    <!-- mappa: route-map (map3) — già funzionante per il disegno -->
+    <!-- map -->
     <div class="route-map-wrap" style="cursor:crosshair;">
       <div id="route-map"></div>
       <div class="map-hint" id="route-map-hint" style="display:none;"></div>
+     
     </div>
-
-    <!-- tracce importate: lista sotto la mappa -->
-    <div id="trk-imported-panel" style="flex-shrink:0;max-height:28dvh;overflow-y:auto;
-      background:var(--surface);border-top:1px solid var(--border);display:none;">
-      <div style="display:flex;align-items:center;padding:5px 10px;border-bottom:1px solid var(--border);gap:6px;">
-        <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text-dim);
-          letter-spacing:.06em;flex:1;">TRACCE IMPORTATE</span>
-        <button class="btn btn-red btn-sm" onclick="clearTracks()">🗑 Rimuovi tutte</button>
-      </div>
-      <table style="width:100%;border-collapse:collapse;font-size:12px;">
-        <thead><tr style="background:var(--surface2);">
-          <th style="padding:4px 8px;text-align:left;font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text-dim);">NOME</th>
-          <th style="padding:4px 8px;width:72px;font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text-dim);">LUNG.</th>
-          <th style="padding:4px 8px;width:64px;font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--accent2);">D+</th>
-          <th style="padding:4px 8px;width:30px;"></th>
-          <th style="padding:4px 8px;width:22px;"></th>
-        </tr></thead>
-        <tbody id="trk-body"></tbody>
-      </table>
-    </div>
-
   </div>
 </div>
-
-<!-- scr-route: alias to trk, kept for JS compatibility -->
-<div class="screen" id="scr-route" style="display:none!important;pointer-events:none;"></div>
 
 
 <!-- ══ SCREEN: NAVIGA ══ -->
 <div class="screen" id="scr-nav">
   <div class="topbar">
     <div class="logo">PAM · Naviga</div>
-    <div style="position:relative;flex:1;min-width:140px;">
-      <input id="nav-search" class="picker-input" placeholder="🔍 Cerca destinazione…" autocomplete="off"
-        oninput="liveSearch('nav-search','nav-sdrop',null)"
-        onkeydown="if(event.key==='Enter'){navSearchGo();closeDrop('nav-sdrop')}">
-      <div class="sdrop" id="nav-sdrop"></div>
-    </div>
-    <button class="btn btn-dim btn-sm" onclick="navPickMode()" id="btn-nav-pick" title="Scegli sulla mappa">🖱</button>
     <div class="tile-toggle">
-      <button class="tile-btn active" data-tile="outdoors" onclick="setStyle('outdoors')" title="Mapbox Outdoor">🥾</button>
-      <button class="tile-btn" data-tile="streets" onclick="setStyle('streets')" title="Mapbox Stradale">🚗</button>
-      <button class="tile-btn" id="btn-osm-layer" onclick="toggleOsmLayer()" title="OSM offline scaricabile">📡</button>
+      <button class="tile-btn active" data-tile="outdoors" onclick="setStyle('outdoors')" title="Outdoor">🥾</button>
+      <button class="tile-btn" data-tile="streets" onclick="setStyle('streets')" title="Stradale">🚗</button>
     </div>
+    <button class="btn btn-amber btn-sm" onclick="requestCompassPermission()" id="btn-compass-req" title="Attiva bussola">🧭 Bussola</button>
+    <button class="btn btn-red btn-sm" onclick="navClear()" id="btn-nav-stop" style="display:none;">⏹ Stop</button>
   </div>
 
   <div class="nav-screen-layout">
-    <!-- offline cache bar -->
-    <div class="offline-bar">
-      <div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap;width:100%;">
-        <span id="osm-layer-badge" style="font-family:'IBM Plex Mono',monospace;font-size:10px;
-          background:var(--surface3);padding:2px 7px;border-radius:4px;color:var(--text-dim);">
-          🗺 Mapbox (online)
-        </span>
-        <progress id="cache-progress" value="0" max="100"
-          style="display:none;flex:1;height:4px;border-radius:2px;accent-color:var(--accent2);min-width:60px;"></progress>
-        <span id="cache-status" style="font-family:'IBM Plex Mono',monospace;font-size:10px;
-          color:var(--text-dim);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
-          Nessuna area salvata
-        </span>
-        <button class="btn btn-dim btn-sm" onclick="cacheOsmArea()" title="Scarica OSM area visibile per uso offline">
-          💾 Scarica OSM
-        </button>
-        <button class="btn btn-red btn-sm" onclick="clearOsmCache()" title="Cancella OSM salvato">🗑</button>
-      </div>
-    </div>
+
 
     <div class="nav-map-wrap"><div id="nav-map"></div>
-      <div class="map-hint" id="nav-map-hint">Clicca sulla mappa per scegliere la destinazione</div>
     </div>
 
+    <!-- nav panel: arrow + stats always visible -->
     <div class="nav-panel">
-      <!-- compass + istruzione -->
-      <div class="nav-compass">
-        <div class="nav-arrow-wrap">
-          <svg id="nav-arrow-svg" viewBox="0 0 72 72" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <circle cx="36" cy="36" r="34" fill="#21262d" stroke="#30363d" stroke-width="2"/>
-            <polygon points="36,8 44,52 36,44 28,52" fill="#58a6ff"/>
-            <polygon points="36,64 44,20 36,28 28,20" fill="#30363d"/>
-          </svg>
-        </div>
-        <div class="nav-instruction">
-          <div class="nav-instruction-text" id="nav-instr-text">Nessuna destinazione</div>
-          <div class="nav-instruction-dist" id="nav-instr-dist"></div>
+      <!-- big compass arrow -->
+      <div style="display:flex;align-items:center;justify-content:center;padding:12px 10px 6px;gap:18px;">
+        <svg id="nav-arrow-svg" viewBox="0 0 96 96" fill="none" xmlns="http://www.w3.org/2000/svg"
+          style="width:96px;height:96px;flex-shrink:0;transition:transform .15s ease-out;">
+          <circle cx="48" cy="48" r="46" fill="#21262d" stroke="#30363d" stroke-width="2"/>
+          <!-- N label -->
+          <text x="48" y="18" text-anchor="middle" fill="#8b949e" font-size="10" font-family="IBM Plex Mono,monospace">N</text>
+          <!-- arrow pointing UP = toward destination -->
+          <polygon points="48,22 57,68 48,60 39,68" fill="#58a6ff"/>
+          <polygon points="48,74 57,28 48,36 39,28" fill="#30363d"/>
+          <!-- center dot -->
+          <circle cx="48" cy="48" r="4" fill="#58a6ff"/>
+        </svg>
+        <div style="flex:1;min-width:0;">
+          <div id="nav-dest-name" style="font-size:13px;font-weight:600;color:var(--text);
+            white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:6px;">
+            Scegli un waypoint dalla lista
+          </div>
+          <div id="nav-dir-label" style="font-family:'IBM Plex Mono',monospace;font-size:11px;
+            color:var(--text-dim);">—</div>
         </div>
       </div>
-      <!-- stats -->
-      <div class="nav-stats">
+      <!-- 4 stats: dist, dalt, alt-now, alt-dest -->
+      <div class="nav-stats" style="grid-template-columns:1fr 1fr 1fr 1fr;">
         <div class="nav-stat">
           <div class="nav-stat-label">DISTANZA</div>
           <div class="nav-stat-val" id="nav-dist">—</div>
@@ -438,18 +441,18 @@ canvas#elev-canvas{width:100%;height:200px;display:block;border-radius:var(--r);
           <div class="nav-stat-unit">m</div>
         </div>
         <div class="nav-stat">
-          <div class="nav-stat-label">VELOCITÀ</div>
-          <div class="nav-stat-val" id="nav-speed">—</div>
-          <div class="nav-stat-unit">km/h</div>
+          <div class="nav-stat-label">QUOTA TU</div>
+          <div class="nav-stat-val" id="nav-alt-you">—</div>
+          <div class="nav-stat-unit">m</div>
+        </div>
+        <div class="nav-stat">
+          <div class="nav-stat-label">QUOTA DEST</div>
+          <div class="nav-stat-val" id="nav-alt-dest">—</div>
+          <div class="nav-stat-unit">m</div>
         </div>
       </div>
-      <!-- dest bar + controls -->
-      <div class="nav-dest-bar">
-        <span class="nav-dest-name" id="nav-dest-name">Nessuna destinazione selezionata</span>
-        <button class="btn btn-blue btn-sm" id="btn-nav-start" onclick="navToggle()">▶ Avvia</button>
-        <button class="btn btn-red btn-sm" onclick="navClear()">✕ Cancella</button>
-      </div>
     </div>
+
   </div>
 </div>
 
@@ -533,6 +536,7 @@ map3.on('load', ()=>{
   map3DrawReady=true;
   initDrawLayers();
   map3DrawPending.forEach(fn=>fn()); map3DrawPending=[];
+  tracks.forEach((_,i)=>addTrackToMap3(i));
 });
 
 // ═══════════════ STYLE SWITCHER ═════════════════════════════════════════════════
@@ -553,42 +557,48 @@ function setStyle(style){
 
   map1.once('style.load', ()=>{ render(); });
   map2.once('style.load', ()=>{ map2Ready=true; tracks.forEach((_,i)=>addTrackToMap2(i)); });
-  map3.once('style.load', ()=>{ map3DrawReady=true; initDrawLayers(); drawRenderWpMarkers(); redrawRoute(); });
+  map3.once('style.load', ()=>{ map3DrawReady=true; initDrawLayers(); drawRenderWpMarkers(); redrawRoute(); tracks.forEach((_,i)=>addTrackToMap3(i)); });
   map4.once('style.load', ()=>{ navMapReady=true; restoreOsmLayerAfterStyleLoad(); map4.addSource(navRouteSrc,{type:'geojson',data:{type:'Feature',geometry:{type:'LineString',coordinates:[]}}});map4.addLayer({id:navRouteLay,type:'line',source:navRouteSrc,paint:{'line-color':'#58a6ff','line-width':4,'line-opacity':.85}}); });
-  showToast(style==='outdoors'?'🥾 Mappa outdoor':'🚗 Mappa stradale');
 }
 
 // ═══════════════ SCREEN SWITCH ══════════════════════════════════════════════════
 function showScreen(s){
-  if(s==='route') s='trk';
-  ['poi','trk','nav'].forEach(id=>{
-    document.getElementById('scr-'+id)?.classList.toggle('active',id===s);
-    document.getElementById('nb-'+id)?.classList.toggle('active',id===s);
+  ['poi','trk','route','nav'].forEach(id=>{
+    document.getElementById('scr-'+id).classList.toggle('active',id===s);
+    document.getElementById('nb-'+id).classList.toggle('active',id===s);
   });
   if(s==='poi') setTimeout(()=>map1.resize(),60);
-  if(s==='nav') setTimeout(()=>{ map4.resize(); checkOsmCache(); },60);
-  if(s==='trk'){
-    const populate=()=>{
+  if(s==='trk') setTimeout(()=>map2.resize(),60);
+  if(s==='nav') setTimeout(()=>{ map4.resize(); checkOsmCache(); renderNavMapMarkers(); },60);
+  if(s==='route'){
+    // Give the DOM time to make the container visible, then resize + populate
+    setTimeout(()=>{
       map3.resize();
-      if(!map3.getSource('draw-route-src')) initDrawLayers();
-      drawRenderWpMarkers();
-      redrawRoute();
-      tracks.forEach((_,i)=>addTrackToMap3(i));
-      renderTrackTable();
-      if(tracks.length){
-        const all=tracks.flatMap(t=>t.pts);
-        const lngs=all.map(p=>p.lon),lats=all.map(p=>p.lat);
-        map3.fitBounds([[Math.min(...lngs),Math.min(...lats)],[Math.max(...lngs),Math.max(...lats)]],{padding:30,maxZoom:14});
-      } else {
+
+      const populate=()=>{
+        if(!map3.getSource('draw-route-src')) initDrawLayers();
+        drawRenderWpMarkers();
+        redrawRoute();
+        tracks.forEach((_,i)=>addTrackToMap3(i));
         const sel=waypoints.filter(w=>w.sel);
         if(sel.length>0){
           const lngs=sel.map(w=>w.lon),lats=sel.map(w=>w.lat);
-          map3.fitBounds([[Math.min(...lngs),Math.min(...lats)],[Math.max(...lngs),Math.max(...lats)]],{padding:40,maxZoom:14});
+          map3.fitBounds([[Math.min(...lngs),Math.min(...lats)],
+                         [Math.max(...lngs),Math.max(...lats)]],
+                        {padding:40,maxZoom:14});
         }
+      };
+
+      if(map3.loaded()){
+        populate();
+      } else {
+        // Container was hidden at startup — map3 never fired 'load'.
+        // A resize() triggers Mapbox to re-check and complete init.
+        map3.once('load', populate);
+        // Nudge again in case resize alone isn't enough
+        setTimeout(()=>{ if(!map3.loaded()) map3.resize(); }, 200);
       }
-    };
-    if(map3.loaded()) setTimeout(populate,80);
-    else { map3.once('load',populate); setTimeout(()=>map3.resize(),80); }
+    }, 80);
   }
 }
 
@@ -660,9 +670,14 @@ function renderPoiTable(){
   waypoints.forEach((w,i)=>{
     const isRef=(document.getElementById('ref-sel').value===`wp:${i}`);
     const d=!isRef&&ref?haversDist(ref.lat,ref.lon,w.lat,w.lon):null;
-    rows.push(`<tr class="${w.sel?'sel':''}" onclick="togglePoi(${i})">
-      <td><input type="checkbox" ${w.sel?'checked':''} onclick="event.stopPropagation();togglePoi(${i})"></td>
-      <td class="name-cell" title="${escAttr(w.name)}">${escH(w.name)}</td>
+    rows.push(`<tr class="${w.sel?'sel':''}">
+      <td><input type="checkbox" ${w.sel?'checked':''} onchange="togglePoi(${i})"></td>
+      <td style="max-width:160px;padding:4px 8px;">
+        <input class="wp-name-input" value="${escAttr(w.name)}"
+          onchange="renameWp(${i},this.value)"
+          onclick="event.stopPropagation()"
+          title="Clicca per modificare il nome">
+      </td>
       <td class="mono">${w.ele!=null?Math.round(w.ele):'—'}</td>
       <td class="mono">${d!=null?fmtDist(d):'—'}</td>
       <td><button class="del-btn" onclick="event.stopPropagation();delPoi(${i})">✕</button></td></tr>`);
@@ -671,6 +686,13 @@ function renderPoiTable(){
 }
 
 function togglePoi(i){waypoints[i].sel=!waypoints[i].sel;render();}
+function renameWp(i,newName){
+  const n=newName.trim();
+  if(!n)return;
+  waypoints[i].name=n;
+  updateRefSelect();  // refresh distance-from selector
+  save();
+}
 function delPoi(i){waypoints.splice(i,1);render();}
 function toggleGpsSel(){if(gpsPos){gpsPos.sel=!gpsPos.sel;renderPoiTable();}}
 function save(){localStorage.setItem('pam_wp',JSON.stringify(waypoints));}
@@ -819,39 +841,58 @@ function importTrack(name,trkEl){
   if(!pts.length)return;
   const len=calcLen(pts);
   const idx=tracks.length;
-  tracks.push({name,pts,len,onMap3:true});
+  tracks.push({name,pts,len,onMap3:true});  // visible on Crea Traccia by default
   addTrackToMap2(idx);
   addTrackToMap3(idx);
   renderTrackTable();
-  if(map3.loaded()){
-    const lngs=pts.map(p=>p.lon),lats=pts.map(p=>p.lat);
-    map3.fitBounds([[Math.min(...lngs),Math.min(...lats)],[Math.max(...lngs),Math.max(...lats)]],{padding:30,maxZoom:14,duration:600});
-  }
 }
 
 function addTrackToMap3(idx){
-  if(idx<0||idx>=tracks.length)return;
-  const t=tracks[idx]; if(t.onMap3===false)return;
-  const srcId=`m3-trk-src-${idx}`,layId=`m3-trk-lay-${idx}`;
-  const geojson={type:'Feature',geometry:{type:'LineString',coordinates:t.pts.map(p=>[p.lon,p.lat])}};
-  const paint={'line-color':'#a371f7','line-width':2.5,'line-opacity':.85,'line-dasharray':[4,3]};
+  if(idx<0||idx>=tracks.length) return;
+  const t=tracks[idx];
+  // onMap3 defaults to true if not set
+  if(t.onMap3===false) return;
+
+  const srcId=`m3-trk-src-${idx}`, layId=`m3-trk-lay-${idx}`;
+  const geojson={type:'Feature',geometry:{type:'LineString',
+    coordinates:t.pts.map(p=>[p.lon,p.lat])}};
+  const paint={'line-color':'#a371f7','line-width':2.5,
+               'line-opacity':.85,'line-dasharray':[4,3]};
+
   function _do(){
-    try{if(map3.getLayer(layId))map3.removeLayer(layId);}catch(e){}
-    try{if(map3.getSource(srcId))map3.removeSource(srcId);}catch(e){}
+    try{ if(map3.getLayer(layId))  map3.removeLayer(layId);  }catch(e){}
+    try{ if(map3.getSource(srcId)) map3.removeSource(srcId); }catch(e){}
     try{
       map3.addSource(srcId,{type:'geojson',data:geojson});
       const before=map3.getLayer('draw-route-lay')?'draw-route-lay':null;
-      if(before)map3.addLayer({id:layId,type:'line',source:srcId,paint},before);
-      else map3.addLayer({id:layId,type:'line',source:srcId,paint});
-    }catch(e){console.warn('addTrackToMap3:',e.message);}
+      if(before) map3.addLayer({id:layId,type:'line',source:srcId,paint},before);
+      else       map3.addLayer({id:layId,type:'line',source:srcId,paint});
+    }catch(e){ console.warn('addTrackToMap3['+idx+']:',e.message); }
   }
-  if(map3.loaded())_do(); else map3DrawPending.push(_do);
+
+  if(map3.loaded()){
+    _do();
+  } else {
+    // Map not ready yet — queue and nudge
+    map3DrawPending.push(_do);
+    map3.once('load', ()=>{ _do(); });
+  }
 }
+
 function removeTrackFromMap3(idx){
-  const srcId=`m3-trk-src-${idx}`,layId=`m3-trk-lay-${idx}`;
-  try{if(map3.getLayer(layId))map3.removeLayer(layId);}catch(e){}
-  try{if(map3.getSource(srcId))map3.removeSource(srcId);}catch(e){}
+  const srcId=`m3-trk-src-${idx}`, layId=`m3-trk-lay-${idx}`;
+  try{ if(map3.getLayer(layId))  map3.removeLayer(layId);  }catch(e){}
+  try{ if(map3.getSource(srcId)) map3.removeSource(srcId); }catch(e){}
 }
+
+function toggleTrackOnMap3(idx){
+  if(idx<0||idx>=tracks.length)return;
+  tracks[idx].onMap3=!tracks[idx].onMap3;
+  if(tracks[idx].onMap3) addTrackToMap3(idx);
+  else removeTrackFromMap3(idx);
+  renderTrackTable();
+}
+
 function addTrackToMap2(idx){
   const t=tracks[idx];
   const srcId=`trk-src-${idx}`, layId=`trk-lay-${idx}`;
@@ -868,19 +909,22 @@ function addTrackToMap2(idx){
 
 function renderTrackTable(){
   const tb=document.getElementById('trk-body');
-  const panel=document.getElementById('trk-imported-panel');
-  if(!tracks.length){ if(panel) panel.style.display='none'; if(tb) tb.innerHTML=''; return; }
-  if(panel) panel.style.display='';
+  if(!tracks.length){tb.innerHTML='<tr><td colspan="5" class="empty">Nessuna traccia importata.</td></tr>';return;}
   tb.innerHTML=tracks.map((t,i)=>{
-    const ep=t.pts.filter(p=>p.ele!=null); let gain=0;
-    for(let j=1;j<ep.length;j++){const d=ep[j].ele-ep[j-1].ele;if(d>0.5)gain+=d;}
-    return `<tr style="border-bottom:1px solid rgba(48,54,61,.4);">
-      <td style="padding:6px 8px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"
-          title="${escAttr(t.name)}">${escH(t.name)}</td>
-      <td class="mono" style="padding:6px 8px;">${fmtDist(t.len)}</td>
-      <td class="mono" style="padding:6px 8px;color:var(--accent2);">${gain>0?'+'+Math.round(gain)+' m':'—'}</td>
-      <td style="padding:4px;text-align:center;"><button class="track-btn" onclick="openElev(${i})" style="padding:2px 6px;">📈</button></td>
-      <td style="padding:4px;text-align:center;"><button class="del-btn" onclick="delTrack(${i})">✕</button></td>
+    const onM3 = t.onMap3!==false; // default true
+    return `<tr>
+      <td class="name-cell" title="${escAttr(t.name)}">${escH(t.name)}</td>
+      <td class="mono">${fmtDist(t.len)}</td>
+      <td class="mono">${t.pts.length}</td>
+      <td style="text-align:center">
+        <button class="track-btn" onclick="openElev(${i})" style="padding:2px 6px;">📈</button>
+      </td>
+      <td style="text-align:center">
+        <button onclick="toggleTrackOnMap3(${i})"
+          style="background:none;border:none;font-size:16px;cursor:pointer;opacity:${onM3?1:.3};padding:0 4px;"
+          title="${onM3?'Visibile in Crea Traccia — clicca per nascondere':'Nascosta — clicca per mostrare in Crea Traccia'}">🗺</button>
+      </td>
+      <td><button class="del-btn" onclick="delTrack(${i})">✕</button></td>
     </tr>`;
   }).join('');
 }
@@ -890,7 +934,8 @@ function delTrack(i){
   if(map2.getLayer(layId)) map2.removeLayer(layId);
   if(map2.getSource(srcId)) map2.removeSource(srcId);
   removeTrackFromMap3(i);
-  tracks.splice(i,1); renderTrackTable();
+  tracks.splice(i,1);
+  renderTrackTable();
 }
 function clearTracks(){
   if(!tracks.length)return;
@@ -936,19 +981,107 @@ const map4 = new mapboxgl.Map({
 map4.addControl(new mapboxgl.NavigationControl({showCompass:true}),'top-right');
 
 // nav state
-let navDest      = null;   // {lat, lon, name, ele}
-let navActive    = false;
-let navWatchId   = null;
-let navPosMarker = null;   // user position on nav map
-let navDestMarker= null;   // destination marker
-let navRouteSrc  = 'nav-route-src';
-let navRouteLay  = 'nav-route-lay';
-let navPickActive= false;
-let navMapReady  = false;
-let navSteps     = [];     // OSRM step instructions
-let navStepIdx   = 0;
-let navLastPos   = null;
-let navLastAlt   = null;
+let navDest        = null;
+let navActive      = false;
+let navWatchId     = null;
+let navPosMarker   = null;
+let navDestMarker  = null;
+let navRouteSrc    = 'nav-route-src';
+let navRouteLay    = 'nav-route-lay';
+let navPickActive  = false;
+let navMapReady    = false;
+let navSteps       = [];
+let navStepIdx     = 0;
+let navLastPos     = null;
+let navLastAlt     = null;
+let navCompassHdg  = null;   // device compass heading (degrees, 0=N)
+let navGpsBearing  = null;   // GPS-derived bearing to dest
+
+// ── COMPASS (iOS Safari requires explicit user-gesture permission call) ─────────
+//
+// Rules for iOS 13+ (confirmed Safari / iOS 18 / iOS 26 beta):
+//   1. DeviceOrientationEvent.requestPermission() MUST be called synchronously
+//      inside a direct onclick handler — NOT inside a Promise/async callback.
+//   2. Safari only fires 'deviceorientation', NOT 'deviceorientationabsolute'.
+//   3. webkitCompassHeading gives the true-north heading (0–360, clockwise).
+//   4. The permission dialog is shown once per origin; after grant it persists
+//      until the user resets site settings in Safari preferences.
+//
+// We expose a dedicated button "🧭 Bussola" whose onclick IS the synchronous
+// call — this guarantees the permission dialog appears correctly on iOS.
+
+let compassGranted = false;
+
+// Called directly by onclick="requestCompassPermission()" — must stay sync
+function requestCompassPermission(){
+  if(typeof DeviceOrientationEvent !== 'undefined' &&
+     typeof DeviceOrientationEvent.requestPermission === 'function'){
+    // iOS 13+ path — this call MUST be here, synchronously in the click handler
+    DeviceOrientationEvent.requestPermission().then(state=>{
+      if(state === 'granted'){
+        compassGranted = true;
+        attachCompassListener();
+        document.getElementById('btn-compass-req').textContent = '🧭 ✓';
+        document.getElementById('btn-compass-req').classList.add('btn-green');
+        showToast('Bussola autorizzata ✓');
+      } else {
+        showToast('Bussola negata — verifica Impostazioni > Safari > Sensori');
+      }
+    }).catch(err=>{
+      showToast('Errore bussola: '+err.message);
+    });
+  } else {
+    // Android / non-iOS: no permission needed, just attach
+    compassGranted = true;
+    attachCompassListener();
+    document.getElementById('btn-compass-req').textContent = '🧭 ✓';
+    showToast('Bussola attiva ✓');
+  }
+}
+
+function attachCompassListener(){
+  // Use only 'deviceorientation' — Safari does NOT support 'deviceorientationabsolute'
+  window.addEventListener('deviceorientation', onOrientation, true);
+}
+
+function startCompass(){
+  // If already granted (e.g. page reload within session), just attach
+  if(compassGranted){
+    attachCompassListener();
+  }
+  // Otherwise the user must press the 🧭 button — we cannot call
+  // requestPermission() here because we may not be in a direct click handler
+}
+
+function stopCompass(){
+  window.removeEventListener('deviceorientation', onOrientation, true);
+  navCompassHdg = null;
+}
+
+function onOrientation(e){
+  // webkitCompassHeading: iOS Safari proprietary, degrees from true north, 0–360
+  // This is the ONLY reliable source on iPhone/iPad Safari
+  const hdg = e.webkitCompassHeading;
+  if(hdg == null || isNaN(hdg)) return;
+  navCompassHdg = hdg;
+  updateArrow();
+}
+function updateArrow(){
+  if(!navDest||navLastPos===null) return;
+  // bearing to dest (GPS-derived, absolute)
+  const bearingToDest = calcBearing(navLastPos.lat,navLastPos.lon,navDest.lat,navDest.lon);
+  // arrow rotation = bearing to dest minus current compass heading
+  // → points to dest relative to device orientation
+  const rot = navCompassHdg!=null
+    ? (bearingToDest - navCompassHdg + 360) % 360
+    : bearingToDest; // fallback: absolute bearing if no compass
+  document.getElementById('nav-arrow-svg').style.transform=`rotate(${rot}deg)`;
+  const dirs=['N','NE','E','SE','S','SO','O','NO'];
+  const compassOk = navCompassHdg!=null;
+  document.getElementById('nav-dir-label').textContent=
+    '→ '+dirs[Math.round(bearingToDest/45)%8]+
+    (compassOk?' · 🧭 '+Math.round(navCompassHdg)+'°':' · premi 🧭 Bussola');
+}
 
 map4.on('load', ()=>{
   navMapReady=true;
@@ -961,150 +1094,195 @@ map4.on('load', ()=>{
 const _origSetStyle = setStyle;
 // We patch setStyle below after its definition
 
-map4.on('click', e=>{
-  if(!navPickActive) return;
-  stopNavPick();
-  const {lat,lng}=e.lngLat;
-  fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`,
-    {headers:{'Accept-Language':'it'}})
-  .then(r=>r.json()).then(d=>setNavDest(lat,lng,d.display_name||`${lat.toFixed(5)},${lng.toFixed(5)}`))
-  .catch(()=>setNavDest(lat,lng,`${lat.toFixed(5)}, ${lng.toFixed(5)}`));
-});
+// map4 click: not used (nav via WP list)
 
-function navPickMode(){
-  navPickActive=!navPickActive;
-  const btn=document.getElementById('btn-nav-pick');
-  btn.classList.toggle('btn-active-map',navPickActive);
-  document.getElementById('nav-map-hint').style.display=navPickActive?'block':'none';
-  map4.getCanvas().style.cursor=navPickActive?'crosshair':'';
-}
-function stopNavPick(){
-  navPickActive=false;
-  document.getElementById('btn-nav-pick').classList.remove('btn-active-map');
-  document.getElementById('nav-map-hint').style.display='none';
-  map4.getCanvas().style.cursor='';
-}
 
-function navSearchGo(){
-  const q=document.getElementById('nav-search').value.trim(); if(!q)return;
-  fetch('https://nominatim.openstreetmap.org/search?format=json&limit=1&q='+encodeURIComponent(q),
-    {headers:{'Accept-Language':'it'}})
-  .then(r=>r.json()).then(d=>{
-    if(!d.length){showToast('Nessun risultato');return;}
-    setNavDest(+d[0].lat,+d[0].lon,d[0].display_name);
-    document.getElementById('nav-search').value=d[0].display_name;
-  }).catch(()=>showToast('Errore ricerca'));
-}
-document.getElementById('nav-search').addEventListener('input',function(){
-  liveSearch('nav-search','nav-sdrop',(name,lat,lon)=>{
-    closeDrop('nav-sdrop');
-    setNavDest(lat,lon,name);
-    document.getElementById('nav-search').value=name;
-  });
-});
 
-async function setNavDest(lat,lon,name){
-  navDest={lat,lon,name,ele:null};
-  document.getElementById('nav-dest-name').textContent=name;
-  // fetch elevation of destination
-  try{
-    const r=await fetch(`https://api.open-elevation.com/api/v1/lookup?locations=${lat},${lon}`);
-    const d=await r.json();
-    if(d.results?.[0]) navDest.ele=d.results[0].elevation;
-  }catch(e){}
-  // place dest marker
-  if(navDestMarker) navDestMarker.remove();
-  const el=makeDot('#f85149',18,'default');
-  navDestMarker=new mapboxgl.Marker({element:el}).setLngLat([lon,lat])
-    .setPopup(new mapboxgl.Popup({offset:10,closeButton:false}).setHTML(`<b>🎯 ${escH(name)}</b>`))
-    .addTo(map4);
-  map4.flyTo({center:[lon,lat],zoom:14});
-  // route drawn as straight line to dest
-  if(navMapReady&&map4.getSource(navRouteSrc)){
-    map4.getSource(navRouteSrc).setData({type:'Feature',geometry:{type:'LineString',coordinates:[[navDest.lon,navDest.lat]]}});
-  }
-  updateNavUI();
-  showToast('Destinazione impostata ✓');
-}
+
+
+
+// setNavDest replaced by navSelectWp
 
 function navClear(){
   navStop();
-  navDest=null;
-  navSteps=[];navStepIdx=0;
+  navDest=null; navSteps=[]; navStepIdx=0;
   if(navDestMarker){navDestMarker.remove();navDestMarker=null;}
   if(navMapReady&&map4.getSource(navRouteSrc))
     map4.getSource(navRouteSrc).setData({type:'Feature',geometry:{type:'LineString',coordinates:[]}});
-  document.getElementById('nav-dest-name').textContent='Nessuna destinazione selezionata';
-  document.getElementById('nav-search').value='';
-  document.getElementById('btn-nav-start').textContent='▶ Avvia';
-  document.getElementById('nav-instr-text').textContent='Nessuna destinazione';
-  document.getElementById('nav-instr-dist').textContent='';
+  document.getElementById('nav-dest-name').textContent='Tocca un waypoint sulla mappa';
+  document.getElementById('nav-dir-label').textContent='—';
   document.getElementById('nav-dist').textContent='—';
   document.getElementById('nav-dalt').textContent='—';
-  document.getElementById('nav-speed').textContent='—';
-  setArrow(null);
+  document.getElementById('nav-alt-you').textContent='—';
+  document.getElementById('nav-alt-dest').textContent='—';
+  document.getElementById('nav-arrow-svg').style.transform='rotate(0deg)';
+  renderNavWpList();
 }
 
 function navToggle(){
-  if(!navDest){showToast('Imposta prima una destinazione');return;}
   if(navActive) navStop(); else navStart();
+}
+
+// Render WP markers on nav map — called on screen switch and after WP changes
+let navWpMarkers = [];  // Mapbox Marker objects on map4
+
+function renderNavMapMarkers(){
+  // remove old
+  navWpMarkers.forEach(m=>m.remove());
+  navWpMarkers=[];
+
+  if(!waypoints.length){
+    return;
+  }
+
+  waypoints.filter(w=>w.sel).forEach((w,i)=>{
+    const isActive = navDest && navDest._idx===i;
+    const color = isActive ? '#f85149' : '#e03030';
+    const size  = isActive ? 20 : 14;
+    const el = makeDot(color, size, 'pointer');
+
+    const popup = new mapboxgl.Popup({offset:12, closeButton:false, closeOnClick:false})
+      .setHTML(`<b>${escH(w.name)}</b>${w.ele!=null?'<br><small>'+Math.round(w.ele)+' m slm</small>':''}<br><small style="color:var(--accent2)">Tocca per navigare →</small>`);
+
+    const m = new mapboxgl.Marker({element:el})
+      .setLngLat([w.lon,w.lat])
+      .setPopup(popup)
+      .addTo(map4);
+
+    // click = start navigation toward this WP
+    el.addEventListener('click', e=>{
+      e.stopPropagation();
+      navSelectWp(waypoints.indexOf(w));  // use original index in waypoints array
+    });
+
+    navWpMarkers.push(m);
+  });
+
+  // if waypoints exist, fit map to show them all (unless nav is active)
+  if(!navActive){
+    const sel=waypoints.filter(w=>w.sel);
+    if(sel.length===1){
+      map4.flyTo({center:[sel[0].lon,sel[0].lat],zoom:13});
+    } else if(sel.length>1){
+      const lngs=sel.map(w=>w.lon), lats=sel.map(w=>w.lat);
+      map4.fitBounds([
+        [Math.min(...lngs),Math.min(...lats)],
+        [Math.max(...lngs),Math.max(...lats)]
+      ],{padding:50,maxZoom:14,duration:600});
+    }
+  }
+}
+
+// keep old name as alias so nothing else breaks
+function renderNavWpList(){ renderNavMapMarkers(); }
+
+async function navSelectWp(i){
+  const w=waypoints[i];
+  // stop current nav if active
+  if(navActive) navStop();
+
+  let ele=w.ele;
+  // try to get elevation if missing
+  if(ele==null){
+    try{
+      const r=await fetch(`https://api.open-elevation.com/api/v1/lookup?locations=${w.lat},${w.lon}`);
+      const d=await r.json();
+      ele=d.results?.[0]?.elevation??null;
+    }catch(e){}
+  }
+
+  navDest={lat:w.lat,lon:w.lon,name:w.name,ele,_idx:i};
+  document.getElementById('nav-dest-name').textContent=w.name;
+
+  // place dest marker on map4
+  if(navDestMarker) navDestMarker.remove();
+  const el2=makeDot('#f85149',18,'default');
+  navDestMarker=new mapboxgl.Marker({element:el2}).setLngLat([w.lon,w.lat])
+    .setPopup(new mapboxgl.Popup({offset:10,closeButton:false}).setHTML(`<b>🎯 ${escH(w.name)}</b>`))
+    .addTo(map4);
+  // fit map to show destination + current GPS position if known
+  if(navLastPos){
+    const sw=[Math.min(navLastPos.lon,w.lon)-0.001, Math.min(navLastPos.lat,w.lat)-0.001];
+    const ne=[Math.max(navLastPos.lon,w.lon)+0.001, Math.max(navLastPos.lat,w.lat)+0.001];
+    map4.fitBounds([sw,ne],{padding:60,maxZoom:15,duration:800});
+  } else {
+    map4.flyTo({center:[w.lon,w.lat],zoom:13});
+  }
+
+  // update alt-dest
+  document.getElementById('nav-alt-dest').textContent=ele!=null?Math.round(ele):'—';
+
+  renderNavMapMarkers();  // refresh marker colors (selected = larger red)
+  // auto-start navigation
+  navStart();
+  showToast(`Navigazione verso: ${w.name}`);
 }
 
 function navStart(){
   if(!navigator.geolocation){showToast('GPS non disponibile');return;}
   navActive=true;
-  document.getElementById('btn-nav-start').textContent='⏹ Stop';
+  document.getElementById('btn-nav-stop').style.display='';
+  startCompass();
   navWatchId=navigator.geolocation.watchPosition(navOnPos,
-    ()=>showToast('Impossibile acquisire GPS'),
-    {enableHighAccuracy:true,maximumAge:2000,timeout:10000});
+    e=>showToast('GPS: '+e.message),
+    {enableHighAccuracy:true,maximumAge:1000,timeout:15000});
   showToast('Navigazione avviata ✓');
 }
 
 function navStop(){
   navActive=false;
+  stopCompass();
   if(navWatchId!=null){navigator.geolocation.clearWatch(navWatchId);navWatchId=null;}
-  document.getElementById('btn-nav-start').textContent='▶ Avvia';
+  document.getElementById('btn-nav-stop').style.display='none';
+  setTimeout(renderNavMapMarkers,100);
 }
 
-async function navOnPos(pos){
-  const{latitude:lat,longitude:lon,altitude:alt,speed}=pos.coords;
+function navOnPos(pos){
+  const{latitude:lat,longitude:lon,altitude:alt}=pos.coords;
   navLastPos={lat,lon};
   if(alt!=null) navLastAlt=alt;
 
-  // update position marker on nav map
+  // update position marker
   if(navPosMarker) navPosMarker.remove();
   const el=makeDot('#3fb950',18,'default');
   navPosMarker=new mapboxgl.Marker({element:el}).setLngLat([lon,lat]).addTo(map4);
-  map4.easeTo({center:[lon,lat],duration:800});
 
-  // compute bearing to dest
+  // fit map to include both current position and destination
   if(navDest){
-    const bearing=calcBearing(lat,lon,navDest.lat,navDest.lon);
-    const dist=haversDist(lat,lon,navDest.lat,navDest.lon);
-    const dAlt=navDest.ele!=null&&alt!=null ? Math.round(navDest.ele-alt) : null;
+    const sw=[Math.min(lon,navDest.lon)-0.001, Math.min(lat,navDest.lat)-0.001];
+    const ne=[Math.max(lon,navDest.lon)+0.001, Math.max(lat,navDest.lat)+0.001];
+    map4.fitBounds([sw,ne],{padding:60,maxZoom:16,duration:600});
+  } else {
+    map4.easeTo({center:[lon,lat],zoom:15,duration:500});
+  }
 
-    setArrow(bearing);
+  if(navDest){
+    const dist=haversDist(lat,lon,navDest.lat,navDest.lon);
+    const dAlt=navDest.ele!=null&&alt!=null?Math.round(navDest.ele-alt):null;
 
     // distance
-    const dEl=document.getElementById('nav-dist');
-    const uEl=document.getElementById('nav-dist-unit');
-    if(dist>=1000){dEl.textContent=(dist/1000).toFixed(1);uEl.textContent='km';}
-    else{dEl.textContent=Math.round(dist);uEl.textContent='m';}
+    if(dist>=1000){
+      document.getElementById('nav-dist').textContent=(dist/1000).toFixed(2);
+      document.getElementById('nav-dist-unit').textContent='km';
+    } else {
+      document.getElementById('nav-dist').textContent=Math.round(dist);
+      document.getElementById('nav-dist-unit').textContent='m';
+    }
 
-    // dislivello
+    // dislivello (signed)
     document.getElementById('nav-dalt').textContent=
       dAlt!=null?(dAlt>=0?'+':'')+dAlt:'—';
 
-    // speed
-    if(speed!=null&&speed>=0) document.getElementById('nav-speed').textContent=(speed*3.6).toFixed(1);
+    // altitude current
+    document.getElementById('nav-alt-you').textContent=
+      alt!=null?Math.round(alt):'—';
 
-    // Direction label
-    const dirs=['N','NE','E','SE','S','SO','O','NO'];
-    const dirLabel=dirs[Math.round(bearing/45)%8];
-    document.getElementById('nav-instr-text').textContent=
-      `Direzione ${dirLabel} — ${dist>=1000?(dist/1000).toFixed(1)+' km':Math.round(dist)+' m'}`;
-    document.getElementById('nav-instr-dist').textContent=
-      dAlt!=null?`Dislivello destinazione: ${dAlt>=0?'+':''} ${dAlt} m`:'';
+    // altitude destination
+    document.getElementById('nav-alt-dest').textContent=
+      navDest.ele!=null?Math.round(navDest.ele):'—';
+
+    // update arrow (compass-based if available)
+    updateArrow();
 
     // arrived?
     if(dist<20){ showToast('🎯 Destinazione raggiunta!'); navStop(); }
@@ -1129,11 +1307,7 @@ async function navCalcRoute(){
   }catch(e){}
 }
 
-function setArrow(bearing){
-  const svg=document.getElementById('nav-arrow-svg');
-  if(bearing===null){svg.style.transform='rotate(0deg)';return;}
-  svg.style.transform=`rotate(${bearing}deg)`;
-}
+// setArrow replaced by updateArrow (compass-based)
 
 function calcBearing(lat1,lon1,lat2,lon2){
   const r=Math.PI/180;
@@ -1143,10 +1317,7 @@ function calcBearing(lat1,lon1,lat2,lon2){
   return ((Math.atan2(y,x)*180/Math.PI)+360)%360;
 }
 
-function updateNavUI(){
-  if(!navDest)return;
-  document.getElementById('nav-dest-name').textContent=navDest.name;
-}
+
 
 // ═══════════════ OFFLINE — DOPPIA SOLUZIONE ══════════════════════════════════════
 // Mapbox: caching automatico tile già visitate (via service worker)
@@ -1162,10 +1333,9 @@ const OSM_SRC = 'osm-offline-src';
 const OSM_LAY = 'osm-offline-lay';
 
 function toggleOsmLayer(){
-  if(!map4.loaded()){showToast('Mappa non ancora pronta');return;}
   osmLayerActive = !osmLayerActive;
   const btn = document.getElementById('btn-osm-layer');
-  const badge = document.getElementById('osm-layer-badge');
+  const badge = document.getElementById('osm-layer-badge'); if(!badge) return;
 
   if(osmLayerActive){
     btn.classList.add('active');
@@ -1210,9 +1380,9 @@ function restoreOsmLayerAfterStyleLoad(){
 
 async function cacheOsmArea(){
   if(!('caches' in window)){showToast('Cache non disponibile nel browser');return;}
-  const bounds = map4.getBounds();
+  const bounds = map1.getBounds();
   // Cache 3 zoom levels: current-1, current, current+1 (cap at 17)
-  const baseZoom = Math.round(map4.getZoom());
+  const baseZoom = Math.round(map1.getZoom());
   const zooms = [baseZoom-1, baseZoom, baseZoom+1].map(z=>Math.max(1,Math.min(17,z)));
 
   let allTiles = [];
@@ -1354,7 +1524,6 @@ document.getElementById('draw-search').addEventListener('input',function(){
 function drawUseGPS(){
   if(!gpsPos){showToast('Prima acquisisci il GPS nella schermata Waypoint');return;}
   drawAddStart(gpsPos.lat,gpsPos.lon);
-  showToast('GPS impostato come partenza ✓');
 }
 function drawAddStart(lat,lon){
   drawAddNode(lat,lon);
@@ -1453,7 +1622,6 @@ function drawUndo(){
   const m=drawNodeMB.pop(); if(m)m.remove();
   if(drawSegments.length>0) drawSegments.pop();
   redrawRoute(); drawUpdateStatus();
-  showToast('Ultimo punto annullato');
 }
 function drawClear(){
   if(!drawNodes.length)return;
@@ -1479,17 +1647,6 @@ function drawUpdateStatus(){
   document.getElementById('di-len').textContent=n>1?fmtDist(dist):'—';
   document.getElementById('di-dp').textContent=n>1?`D+ ${Math.round(gain)} m`:'D+ —';
   document.getElementById('di-dm').textContent=n>1?`D− ${Math.round(loss)} m`:'D− —';
-  const eb=document.getElementById('btn-draw-elev');
-  if(eb) eb.style.display=(n>1&&allPts.some(p=>p.ele!=null))?'':'none';
-}
-function openDrawElev(){
-  const ap=drawSegments.flat().filter(p=>p.ele!=null);
-  if(!ap.length){showToast('Nessun dato altimetrico');return;}
-  const tn=document.getElementById('draw-name')?.value||'Traccia';
-  document.getElementById('modal-title').textContent=tn;
-  document.getElementById('modal-sub').textContent=`${fmtDist(calcLen(ap))} · ${ap.length} punti`;
-  document.getElementById('elev-modal').classList.add('open');
-  requestAnimationFrame(()=>drawElevProfile(ap));
 }
 
 async function drawExport(){
@@ -1593,11 +1750,11 @@ function dlBlob(content,name,type){
 let toastTimer;
 function showToast(msg){
   const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');
-  clearTimeout(toastTimer);toastTimer=setTimeout(()=>t.classList.remove('show'),2600);
+  clearTimeout(toastTimer);toastTimer=setTimeout(()=>t.classList.remove('show'),2000);
 }
 
 document.addEventListener('click',e=>{
-  ['poi-sdrop','draw-sdrop','nav-sdrop'].forEach(id=>{
+  ['poi-sdrop','draw-sdrop'].forEach(id=>{
     const el=document.getElementById(id);
     if(el&&el.style.display!=='none'&&!el.parentElement?.contains(e.target))
       el.style.display='none';
@@ -1608,6 +1765,42 @@ document.addEventListener('click',e=>{
 if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{});
 // render() is called after map1 'load' event
 drawUpdateStatus();
+
+// ── GARMIN / URL parameter import ─────────────────────────────────────────────
+// Accepts: ?lat=XX&lon=YY&ele=ZZ&name=LABEL&src=garmin
+// Called by the iOS Shortcut companion when Garmin sends a waypoint
+function handleUrlParams(){
+  const p = new URLSearchParams(window.location.search);
+  const lat = parseFloat(p.get('lat'));
+  const lon = parseFloat(p.get('lon'));
+  const ele = p.get('ele') ? parseFloat(p.get('ele')) : null;
+  const name = p.get('name') || p.get('n') || null;
+  const src  = p.get('src') || '';
+
+  if(isNaN(lat) || isNaN(lon)) return;  // nothing to do
+
+  // Build WP name: use provided name, or auto-generate from source + timestamp
+  const ts = new Date();
+  const pad = n => String(n).padStart(2,'0');
+  const dateStr = `${ts.getFullYear()}${pad(ts.getMonth()+1)}${pad(ts.getDate())}_${pad(ts.getHours())}${pad(ts.getMinutes())}`;
+  const wpName = name ? decodeURIComponent(name) : (src==='garmin' ? `Garmin_${dateStr}` : `WP_${dateStr}`);
+
+  // Wait for map to be ready, then add the waypoint
+  const addWp = () => {
+    waypoints.push({name:wpName, lat, lon, ele, sel:true});
+    map1.flyTo({center:[lon, lat], zoom:14});
+    render();
+    // Clean URL so refresh doesn't re-add the same point
+    window.history.replaceState({}, '', window.location.pathname);
+    showToast(`📍 ${wpName} aggiunto da ${src==='garmin'?'Garmin':'URL'} ✓`);
+  };
+
+  // If map1 is not loaded yet, wait for it
+  if(map1.loaded()) addWp();
+  else map1.once('load', addWp);
+}
+
+handleUrlParams();
 </script>
 </body>
 </html>
