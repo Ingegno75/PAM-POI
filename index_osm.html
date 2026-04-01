@@ -61,7 +61,7 @@ nav{display:flex;background:var(--surface);border-bottom:1px solid var(--border)
 
 /* MAPS */
 .map-wrap,.route-map-wrap,.trk-map-wrap{flex:1 1 auto;min-height:0;position:relative;}
-.map-wrap>div,.route-map-wrap>div,.trk-map-wrap>div,.nav-map-wrap>div{position:absolute;inset:0;}
+.map-wrap>div,.route-map-wrap>div,.trk-map-wrap>div,.nav-map-wrap>div{position:absolute;inset:0;height:100%!important;}
 
 .leaflet-container{background:var(--surface2)!important;}
 .leaflet-popup-content-wrapper{background:var(--surface2)!important;color:var(--text)!important;
@@ -69,8 +69,7 @@ nav{display:flex;background:var(--surface);border-bottom:1px solid var(--border)
   box-shadow:0 4px 24px rgba(0,0,0,.6)!important;font-family:'Outfit',sans-serif;font-size:13px;}
 .leaflet-popup-tip{background:var(--surface2)!important;}
 .leaflet-popup-close-button{color:var(--text-dim)!important;font-size:16px!important;}
-.leaflet-control-zoom a{background:var(--surface2)!important;color:var(--text)!important;
-  border-color:var(--border)!important;}
+.leaflet-control-zoom a{background:var(--surface2)!important;color:var(--text)!important;border-color:var(--border)!important;}
 .leaflet-bar{border:1px solid var(--border)!important;}
 
 
@@ -106,10 +105,6 @@ td.name-cell{max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:
   padding:2px 5px;border-radius:4px;transition:color .15s;}
 .del-btn:hover{color:var(--warn);}
 .empty{text-align:center;padding:16px;color:var(--text-dim);font-size:12px;}
-.wp-name-input{background:transparent;border:none;color:var(--text);font-family:'Outfit',sans-serif;
-  font-size:12px;width:100%;outline:none;padding:0;cursor:text;}
-.wp-name-input:focus{color:var(--accent);border-bottom:1px solid var(--accent);}
-.wp-name-input::placeholder{color:var(--text-dim);}
 .track-btn{background:var(--surface3);border:none;color:var(--accent);font-size:11px;
   cursor:pointer;padding:3px 7px;border-radius:4px;font-family:'IBM Plex Mono',monospace;}
 .gps-badge{display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:600;
@@ -214,14 +209,13 @@ canvas#elev-canvas{width:100%;height:200px;display:block;border-radius:var(--r);
 .mb-dot{width:14px;height:14px;border-radius:50%;border:2px solid #fff;cursor:pointer;
   box-shadow:0 0 6px rgba(0,0,0,.5);}
 
-/* TOAST — centro schermo */
-.toast{position:fixed;top:50%;left:50%;
-  transform:translate(-50%,-50%) scale(.85);opacity:0;
-  background:rgba(22,27,34,.95);border:1px solid var(--border);
-  color:var(--text);padding:10px 20px;border-radius:12px;font-size:14px;font-weight:600;
-  z-index:10000;transition:transform .2s ease,opacity .2s ease;pointer-events:none;
-  white-space:nowrap;box-shadow:0 8px 32px rgba(0,0,0,.6);text-align:center;}
-.toast.show{transform:translate(-50%,-50%) scale(1);opacity:1;}
+/* TOAST */
+.toast{position:fixed;bottom:calc(var(--safe-bot)+12px);left:50%;
+  transform:translateX(-50%) translateY(60px);background:var(--surface2);border:1px solid var(--border);
+  color:var(--text);padding:7px 14px;border-radius:20px;font-size:12px;font-weight:500;z-index:10000;
+  transition:transform .3s cubic-bezier(.34,1.56,.64,1);pointer-events:none;white-space:nowrap;
+  box-shadow:0 4px 20px rgba(0,0,0,.5);}
+.toast.show{transform:translateX(-50%) translateY(0);}
 </style>
 </head>
 <body>
@@ -257,16 +251,6 @@ canvas#elev-canvas{width:100%;height:200px;display:block;border-radius:var(--r);
   <div class="map-wrap"><div id="map"></div>
   </div>
   <div class="bottom-panel">
-    <div class="offline-bar" id="poi-offline-bar">
-      <progress id="cache-progress" value="0" max="100"
-        style="display:none;flex:1;height:4px;border-radius:2px;accent-color:var(--accent2);min-width:60px;"></progress>
-      <span id="cache-status" style="font-family:'IBM Plex Mono',monospace;font-size:10px;
-        color:var(--text-dim);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
-        Nessuna area OSM salvata
-      </span>
-      <button class="btn btn-dim btn-sm" onclick="cacheOsmArea()" title="Scarica mappa OSM area visibile per uso offline">💾 OSM offline</button>
-      <button class="btn btn-red btn-sm" onclick="clearOsmCache()" style="padding:4px 6px;">🗑</button>
-    </div>
     <div class="ref-bar">
       <span class="ref-label">Distanza da:</span>
       <select class="ref-sel" id="ref-sel" onchange="renderPoiTable()">
@@ -294,11 +278,15 @@ canvas#elev-canvas{width:100%;height:200px;display:block;border-radius:var(--r);
   </div>
 </div>
 
-<!-- ══ SCREEN: TRACCIA (unified: draw + imported tracks) ══ -->
+<!-- ══ SCREEN: TRACCE ══ -->
+<!-- trk-map kept hidden (map2 still initialised to avoid JS errors) -->
+<div style="display:none;"><div id="trk-map"></div></div>
+
+<!-- ══ SCREEN: TRACCIA (disegno + importazione) ══ -->
 <div class="screen" id="scr-trk">
   <div class="route-layout">
 
-    <!-- top info bar: new track name + stats -->
+    <!-- top info bar: traccia in disegno -->
     <div style="display:flex;align-items:center;gap:8px;padding:6px 10px;
       background:var(--surface2);border-bottom:1px solid var(--border);flex-shrink:0;flex-wrap:wrap;">
       <input id="draw-name" value="Nuova traccia"
@@ -311,116 +299,130 @@ canvas#elev-canvas{width:100%;height:200px;display:block;border-radius:var(--r);
       <span class="draw-stat" id="di-len">—</span>
       <span class="draw-stat" id="di-dp" style="color:var(--accent2)">D+ —</span>
       <span class="draw-stat" id="di-dm" style="color:var(--warn)">D− —</span>
-      <button class="btn btn-dim btn-sm" onclick="openDrawElev()" id="btn-draw-elev" style="display:none;">📈</button>
+      <button class="btn btn-dim btn-sm" id="btn-draw-elev" onclick="openDrawElev()" style="display:none;" title="Profilo altimetrico traccia corrente">📈</button>
     </div>
 
-    <!-- toolbar: draw + import -->
+    <!-- toolbar: disegno + importa -->
     <div class="route-config">
       <div class="route-row" style="flex-wrap:wrap;gap:5px;">
-        <!-- draw start search -->
         <div style="position:relative;flex:1;min-width:140px;">
-          <input class="picker-input" id="draw-search" placeholder="🔍 Cerca partenza…"
+          <input class="picker-input" id="draw-search" placeholder="🔍 Cerca punto di partenza…"
             autocomplete="off"
             oninput="liveSearch('draw-search','draw-sdrop',null)"
             onkeydown="if(event.key==='Enter'){drawSearchGo();closeDrop('draw-sdrop')}">
           <div class="sdrop" id="draw-sdrop"></div>
         </div>
         <button class="btn btn-dim btn-sm" onclick="drawUseGPS()">📍 GPS</button>
-        <!-- segment mode -->
         <div class="mode-toggle">
           <button class="mode-btn walk active" id="seg-walk" onclick="setSegMode('foot')">🏃 Sentiero</button>
           <button class="mode-btn drive" id="seg-drive" onclick="setSegMode('driving')">🚗 Strada</button>
           <button class="mode-btn" id="seg-line" onclick="setSegMode('line')">📏 Linea</button>
         </div>
-        <!-- tile toggle -->
         <div class="tile-toggle">
           <button class="tile-btn active" data-tile="outdoors" onclick="setStyle('outdoors')" title="Outdoor">🥾</button>
           <button class="tile-btn" data-tile="streets" onclick="setStyle('streets')" title="Stradale">🚗</button>
         </div>
-      </div>
-      <div class="route-row" style="gap:5px;flex-wrap:wrap;">
         <button class="btn btn-dim btn-sm" onclick="drawUndo()">↩ Undo</button>
-        <button class="btn btn-red btn-sm" onclick="drawClear()">🗑 Reset traccia</button>
-        <button class="btn btn-green btn-sm" onclick="drawExport()">⬇ Esporta traccia</button>
-        <label class="btn btn-dim btn-sm" for="trk-file-input" style="margin-left:auto;">📂 Importa GPX</label>
+        <button class="btn btn-red btn-sm" onclick="drawClear()">🗑 Reset</button>
+        <button class="btn btn-green btn-sm" onclick="drawExport()">⬇ Esporta</button>
+        <label class="btn btn-dim btn-sm" for="trk-file-input" style="margin-left:4px;">📂 Importa GPX</label>
         <input type="file" id="trk-file-input" accept=".gpx" style="display:none">
-        <button class="btn btn-red btn-sm" onclick="clearTracks()">🗑 Importate</button>
       </div>
     </div>
 
-    <!-- map: crosshair for drawing, shows both new (red) and imported (violet dashed) tracks -->
+    <!-- mappa: route-map (map3) — già funzionante per il disegno -->
     <div class="route-map-wrap" style="cursor:crosshair;">
       <div id="route-map"></div>
       <div class="map-hint" id="route-map-hint" style="display:none;"></div>
     </div>
 
-    <!-- imported tracks list (below map) -->
-    <div style="flex-shrink:0;max-height:28dvh;overflow-y:auto;background:var(--surface);
-      border-top:1px solid var(--border);">
-      <table id="trk-table-unified" style="width:100%;border-collapse:collapse;font-size:12px;display:none;">
+    <!-- tracce importate: lista sotto la mappa -->
+    <div id="trk-imported-panel" style="flex-shrink:0;max-height:28dvh;overflow-y:auto;
+      background:var(--surface);border-top:1px solid var(--border);display:none;">
+      <div style="display:flex;align-items:center;padding:5px 10px;border-bottom:1px solid var(--border);gap:6px;">
+        <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text-dim);
+          letter-spacing:.06em;flex:1;">TRACCE IMPORTATE</span>
+        <button class="btn btn-red btn-sm" onclick="clearTracks()">🗑 Rimuovi tutte</button>
+      </div>
+      <table style="width:100%;border-collapse:collapse;font-size:12px;">
         <thead><tr style="background:var(--surface2);">
-          <th style="padding:5px 8px;text-align:left;font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text-dim);letter-spacing:.06em;">TRACCIA IMPORTATA</th>
-          <th style="width:72px;padding:5px 8px;font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text-dim);">LUNG.</th>
-          <th style="width:60px;padding:5px 8px;font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text-dim);">D+</th>
-          <th style="width:32px;padding:5px 8px;"></th>
-          <th style="width:22px;padding:5px 8px;"></th>
+          <th style="padding:4px 8px;text-align:left;font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text-dim);">NOME</th>
+          <th style="padding:4px 8px;width:72px;font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text-dim);">LUNG.</th>
+          <th style="padding:4px 8px;width:64px;font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--accent2);">D+</th>
+          <th style="padding:4px 8px;width:30px;"></th>
+          <th style="padding:4px 8px;width:22px;"></th>
         </tr></thead>
         <tbody id="trk-body"></tbody>
       </table>
-      <div id="trk-empty-msg" style="padding:0;"></div>
     </div>
 
   </div>
 </div>
 
-<!-- scr-route: alias redirect — not used as standalone screen any more -->
-<div class="screen" id="scr-route" style="display:none!important;"></div>
+<!-- scr-route: alias to trk, kept for JS compatibility -->
+<div class="screen" id="scr-route" style="display:none!important;pointer-events:none;"></div>
 
 
 <!-- ══ SCREEN: NAVIGA ══ -->
 <div class="screen" id="scr-nav">
   <div class="topbar">
     <div class="logo">PAM · Naviga</div>
-    <div class="tile-toggle">
-      <button class="tile-btn active" data-tile="outdoors" onclick="setStyle('outdoors')" title="Outdoor">🥾</button>
-      <button class="tile-btn" data-tile="streets" onclick="setStyle('streets')" title="Stradale">🚗</button>
+    <div style="position:relative;flex:1;min-width:140px;">
+      <input id="nav-search" class="picker-input" placeholder="🔍 Cerca destinazione…" autocomplete="off"
+        oninput="liveSearch('nav-search','nav-sdrop',null)"
+        onkeydown="if(event.key==='Enter'){navSearchGo();closeDrop('nav-sdrop')}">
+      <div class="sdrop" id="nav-sdrop"></div>
     </div>
-    <button class="btn btn-amber btn-sm" onclick="requestCompassPermission()" id="btn-compass-req" title="Attiva bussola">🧭 Bussola</button>
-    <button class="btn btn-red btn-sm" onclick="navClear()" id="btn-nav-stop" style="display:none;">⏹ Stop</button>
+    <button class="btn btn-dim btn-sm" onclick="navPickMode()" id="btn-nav-pick" title="Scegli sulla mappa">🖱</button>
+    <div class="tile-toggle">
+      <button class="tile-btn active" data-tile="outdoors" onclick="setStyle('outdoors')" title="Mapbox Outdoor">🥾</button>
+      <button class="tile-btn" data-tile="streets" onclick="setStyle('streets')" title="Mapbox Stradale">🚗</button>
+      <button class="tile-btn" id="btn-osm-layer" onclick="toggleOsmLayer()" title="OSM offline scaricabile">📡</button>
+    </div>
   </div>
 
   <div class="nav-screen-layout">
-
-
-    <div class="nav-map-wrap"><div id="nav-map"></div>
+    <!-- offline cache bar -->
+    <div class="offline-bar">
+      <div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap;width:100%;">
+        <span id="osm-layer-badge" style="font-family:'IBM Plex Mono',monospace;font-size:10px;
+          background:var(--surface3);padding:2px 7px;border-radius:4px;color:var(--text-dim);">
+          🗺 Mapbox (online)
+        </span>
+        <progress id="cache-progress" value="0" max="100"
+          style="display:none;flex:1;height:4px;border-radius:2px;accent-color:var(--accent2);min-width:60px;"></progress>
+        <span id="cache-status" style="font-family:'IBM Plex Mono',monospace;font-size:10px;
+          color:var(--text-dim);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+          Nessuna area salvata
+        </span>
+        <button class="btn btn-dim btn-sm" onclick="cacheOsmArea()" title="Scarica OSM area visibile per uso offline">
+          💾 Scarica OSM
+        </button>
+        <button class="btn btn-red btn-sm" onclick="clearOsmCache()" title="Cancella OSM salvato">🗑</button>
+      </div>
     </div>
 
-    <!-- nav panel: arrow + stats always visible -->
+    <div class="nav-map-wrap"><div id="nav-map"></div>
+      <div class="map-hint" id="nav-map-hint">Clicca sulla mappa per scegliere la destinazione</div>
+    </div>
+
     <div class="nav-panel">
-      <!-- big compass arrow -->
-      <div style="display:flex;align-items:center;justify-content:center;padding:12px 10px 6px;gap:18px;">
-        <svg id="nav-arrow-svg" viewBox="0 0 96 96" fill="none" xmlns="http://www.w3.org/2000/svg"
-          style="width:96px;height:96px;flex-shrink:0;transition:transform .15s ease-out;">
-          <circle cx="48" cy="48" r="46" fill="#21262d" stroke="#30363d" stroke-width="2"/>
-          <!-- N label -->
-          <text x="48" y="18" text-anchor="middle" fill="#8b949e" font-size="10" font-family="IBM Plex Mono,monospace">N</text>
-          <!-- arrow pointing UP = toward destination -->
-          <polygon points="48,22 57,68 48,60 39,68" fill="#58a6ff"/>
-          <polygon points="48,74 57,28 48,36 39,28" fill="#30363d"/>
-          <!-- center dot -->
-          <circle cx="48" cy="48" r="4" fill="#58a6ff"/>
-        </svg>
-        <div style="flex:1;min-width:0;">
-          <div id="nav-dest-name" style="font-size:13px;font-weight:600;color:var(--text);
-            white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:6px;">
-            Scegli un waypoint dalla lista
-          </div>
-          <div id="nav-dir-label" style="font-family:'IBM Plex Mono',monospace;font-size:11px;
-            color:var(--text-dim);">—</div>
+      <!-- compass + istruzione -->
+      <div class="nav-compass">
+        <div class="nav-arrow-wrap">
+          <svg id="nav-arrow-svg" viewBox="0 0 72 72" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="36" cy="36" r="34" fill="#21262d" stroke="#30363d" stroke-width="2"/>
+            <polygon points="36,8 44,52 36,44 28,52" fill="#58a6ff"/>
+            <polygon points="36,64 44,20 36,28 28,20" fill="#30363d"/>
+          </svg>
+        </div>
+        <div class="nav-instruction">
+          <div class="nav-instruction-text" id="nav-instr-text">Nessuna destinazione</div>
+          <div class="nav-instruction-dist" id="nav-instr-dist"></div>
         </div>
       </div>
-      <!-- 4 stats: dist, dalt, alt-now, alt-dest -->
-      <div class="nav-stats" style="grid-template-columns:1fr 1fr 1fr 1fr;">
+      <!-- stats -->
+      <div class="nav-stats">
         <div class="nav-stat">
           <div class="nav-stat-label">DISTANZA</div>
           <div class="nav-stat-val" id="nav-dist">—</div>
@@ -432,18 +434,18 @@ canvas#elev-canvas{width:100%;height:200px;display:block;border-radius:var(--r);
           <div class="nav-stat-unit">m</div>
         </div>
         <div class="nav-stat">
-          <div class="nav-stat-label">QUOTA TU</div>
-          <div class="nav-stat-val" id="nav-alt-you">—</div>
-          <div class="nav-stat-unit">m</div>
-        </div>
-        <div class="nav-stat">
-          <div class="nav-stat-label">QUOTA DEST</div>
-          <div class="nav-stat-val" id="nav-alt-dest">—</div>
-          <div class="nav-stat-unit">m</div>
+          <div class="nav-stat-label">VELOCITÀ</div>
+          <div class="nav-stat-val" id="nav-speed">—</div>
+          <div class="nav-stat-unit">km/h</div>
         </div>
       </div>
+      <!-- dest bar + controls -->
+      <div class="nav-dest-bar">
+        <span class="nav-dest-name" id="nav-dest-name">Nessuna destinazione selezionata</span>
+        <button class="btn btn-blue btn-sm" id="btn-nav-start" onclick="navToggle()">▶ Avvia</button>
+        <button class="btn btn-red btn-sm" onclick="navClear()">✕ Cancella</button>
+      </div>
     </div>
-
   </div>
 </div>
 
@@ -467,134 +469,110 @@ canvas#elev-canvas{width:100%;height:200px;display:block;border-radius:var(--r);
 <div class="toast" id="toast"></div>
 
 <script>
+
 'use strict';
-// ═══════════════ CONFIG ═══════════════════════════════════════════════════════
-const TILES = {
-  outdoors: {
-    url: 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
-    attr: '© OpenTopoMap © OpenStreetMap'
-  },
-  streets: {
-    url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-    attr: '© OpenStreetMap contributors'
-  }
-};
+// ═══ CONFIG ══════════════════════════════════════════════════════════════════
+const TILE_OUTDOOR = 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png';
+const TILE_STREET  = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+const ATTR_OUTDOOR = '© OpenTopoMap · © OpenStreetMap';
+const ATTR_STREET  = '© OpenStreetMap contributors';
+
 let currentStyle = 'outdoors';
+let waypoints = JSON.parse(localStorage.getItem('pam_wp') || '[]');
+let tracks = [], gpsPos = null, mapClickMode = false, searchTimers = {};
+let poiMarkers=[], gpsMarker1=null, trkLayers3={};
+let drawNodes=[], drawSegments=[], drawSegMode='foot', drawPending=false;
+let drawWpMarkers=[], drawNodeMarkers=[], drawPolyline=null;
 
-// ═══════════════ STATE ════════════════════════════════════════════════════════
-let waypoints  = JSON.parse(localStorage.getItem('pam_wp') || '[]');
-let tracks     = [];
-let gpsPos     = null;
-let mapClickMode = false;
-let searchTimers = {};
-let poiMarkers = [];
-let gpsMarker1 = null;
-let trkLayers2 = [];   // layers on map2 (not really used in OSM version)
-let trkLayers3 = [];   // {id:layerObj} on map3
-let drawNodes  = [];
-let drawSegments = [];
-let drawSegMode = 'foot';
-let drawPending = false;
-let drawWpMarkers = [];
-let drawNodeMarkers = [];
-let drawPolylines = [];
-
-// ═══════════════ MAPS ════════════════════════════════════════════════════════
+// ═══ MAPS ════════════════════════════════════════════════════════════════════
 const CENTER = [45.07, 7.68];
+function makeTile(style){ return L.tileLayer(style==='outdoors'?TILE_OUTDOOR:TILE_STREET,{maxZoom:17,attribution:style==='outdoors'?ATTR_OUTDOOR:ATTR_STREET}); }
 
-function makeTileLayer(style){
-  return L.tileLayer(TILES[style].url, {maxZoom:17, attribution:TILES[style].attr});
-}
+const map1 = L.map('map',       {zoomControl:true}).setView(CENTER,10);
+const map2 = L.map('trk-map',   {zoomControl:true}).setView(CENTER,10); // hidden, kept for compat
+const map3 = L.map('route-map', {zoomControl:true}).setView(CENTER,10);
+const map4 = L.map('nav-map',   {zoomControl:true}).setView(CENTER,10);
 
-const map1 = L.map('map',       {zoomControl:true}).setView(CENTER, 10);
-const map2 = L.map('trk-map',   {zoomControl:true}).setView(CENTER, 10);
-const map3 = L.map('route-map', {zoomControl:true, preferCanvas:true}).setView(CENTER, 10);
-const map4 = L.map('nav-map',   {zoomControl:true}).setView(CENTER, 10);
-
-let tl1=makeTileLayer('outdoors').addTo(map1);
-let tl2=makeTileLayer('outdoors').addTo(map2);
-let tl3=makeTileLayer('outdoors').addTo(map3);
-let tl4=makeTileLayer('outdoors').addTo(map4);
+let tl1=makeTile('outdoors').addTo(map1);
+let tl2=makeTile('outdoors').addTo(map2);
+let tl3=makeTile('outdoors').addTo(map3);
+let tl4=makeTile('outdoors').addTo(map4);
 
 function setStyle(style){
   currentStyle=style;
   document.querySelectorAll('.tile-btn').forEach(b=>b.classList.toggle('active',b.dataset.tile===style));
-  [map1,map2,map3,map4].forEach((m,i)=>{
-    const tls=[tl1,tl2,tl3,tl4];
-    m.removeLayer(tls[i]);
-    tls[i]=makeTileLayer(style).addTo(m);
-    if(i===0)tl1=tls[i]; if(i===1)tl2=tls[i];
-    if(i===2)tl3=tls[i]; if(i===3)tl4=tls[i];
+  [[map1,'tl1'],[map2,'tl2'],[map3,'tl3'],[map4,'tl4']].forEach(([m,n])=>{
+    const old=({tl1,tl2,tl3,tl4})[n]; m.removeLayer(old);
+    const nl=makeTile(style).addTo(m);
+    if(n==='tl1')tl1=nl; if(n==='tl2')tl2=nl; if(n==='tl3')tl3=nl; if(n==='tl4')tl4=nl;
   });
 }
 
-// ═══════════════ SCREEN SWITCH ════════════════════════════════════════════════
+// ═══ SCREEN SWITCH ═══════════════════════════════════════════════════════════
 function showScreen(s){
-  if(s==='route') s='trk';
+  if(s==='route')s='trk';
   ['poi','trk','nav'].forEach(id=>{
     document.getElementById('scr-'+id)?.classList.toggle('active',id===s);
     document.getElementById('nb-'+id)?.classList.toggle('active',id===s);
   });
   if(s==='poi') setTimeout(()=>map1.invalidateSize(),80);
   if(s==='nav') setTimeout(()=>{ map4.invalidateSize(); renderNavMapMarkers(); },80);
-  if(s==='trk'){
-    setTimeout(()=>{
-      map3.invalidateSize();
-      drawRenderWpMarkers();
-      redrawRoute();
-      tracks.forEach((_,i)=>addTrackToMap3(i));
-      renderTrackTable();
-      if(tracks.length){
-        const all=tracks.flatMap(t=>t.pts);
-        map3.fitBounds(L.latLngBounds(all.map(p=>[p.lat,p.lon])),{padding:[30,30],maxZoom:14});
-      } else {
-        const sel=waypoints.filter(w=>w.sel);
-        if(sel.length) map3.fitBounds(L.latLngBounds(sel.map(w=>[w.lat,w.lon])),{padding:[40,40],maxZoom:14});
-      }
-    },80);
-  }
+  if(s==='trk') setTimeout(()=>{
+    map3.invalidateSize();
+    drawRenderWpMarkers(); redrawRoute();
+    tracks.forEach((_,i)=>addTrackToMap3(i));
+    renderTrackTable();
+    if(tracks.length){
+      const all=tracks.flatMap(t=>t.pts);
+      map3.fitBounds(L.latLngBounds(all.map(p=>[p.lat,p.lon])),{padding:[30,30],maxZoom:14});
+    } else {
+      const sel=waypoints.filter(w=>w.sel);
+      if(sel.length) map3.fitBounds(L.latLngBounds(sel.map(w=>[w.lat,w.lon])),{padding:[40,40],maxZoom:14});
+    }
+  },80);
 }
 
-// ═══════════════ HELPER: marker dot ══════════════════════════════════════════
+// ═══ HELPERS ═════════════════════════════════════════════════════════════════
 function makeDot(color,size=14){
   return L.divIcon({className:'',iconSize:[size,size],iconAnchor:[size/2,size/2],
-    html:`<div style="width:${size}px;height:${size}px;border-radius:50%;background:${color};border:2px solid #fff;box-shadow:0 0 6px ${color}88;"></div>`});
+    html:`<div style="width:${size}px;height:${size}px;border-radius:50%;background:${color};border:2px solid #fff;box-shadow:0 0 6px ${color}66;"></div>`});
 }
+function escH(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function escAttr(s){return escH(s).replace(/"/g,'&quot;');}
+function dlBlob(c,n,t){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([c],{type:t}));a.download=n;a.click();}
+function haversDist(a,b,c,d){const R=6371000,r=Math.PI/180,dA=(c-a)*r,dB=(d-b)*r;const e=Math.sin(dA/2)**2+Math.cos(a*r)*Math.cos(c*r)*Math.sin(dB/2)**2;return R*2*Math.atan2(Math.sqrt(e),Math.sqrt(1-e));}
+function calcLen(pts){let d=0;for(let i=1;i<pts.length;i++)d+=haversDist(pts[i-1].lat,pts[i-1].lon,pts[i].lat,pts[i].lon);return d;}
+function fmtDist(m){return m>=1000?(m/1000).toFixed(2)+' km':Math.round(m)+' m';}
+let toastTimer;
+function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>t.classList.remove('show'),2000);}
+function save(){localStorage.setItem('pam_wp',JSON.stringify(waypoints));}
+function closeDrop(id){const e=document.getElementById(id);if(e)e.style.display='none';}
 
-// ═══════════════ RENDER POI (map1) ════════════════════════════════════════════
+// ═══ POI / WAYPOINT ══════════════════════════════════════════════════════════
 function render(){
-  poiMarkers.forEach(m=>map1.removeLayer(m)); poiMarkers=[];
+  poiMarkers.forEach(m=>map1.removeLayer(m));poiMarkers=[];
   waypoints.forEach((w,i)=>{
-    const color=w.sel?'#ff6b00':'#e03030';
-    const m=L.marker([w.lat,w.lon],{icon:makeDot(color,w.sel?17:14)}).addTo(map1);
+    const m=L.marker([w.lat,w.lon],{icon:makeDot(w.sel?'#ff6b00':'#e03030',w.sel?17:14)}).addTo(map1);
     m.bindPopup(`<b>${escH(w.name)}</b><br><small>${w.lat.toFixed(5)}, ${w.lon.toFixed(5)}</small>`);
-    m.on('click',()=>{ if(mapClickMode)return; w.sel=!w.sel; render(); });
+    m.on('click',()=>{if(mapClickMode)return;w.sel=!w.sel;render();});
     poiMarkers.push(m);
   });
-  renderPoiTable(); updateRefSelect(); save();
+  renderPoiTable();updateRefSelect();save();
 }
-
 function updateRefSelect(){
   const sel=document.getElementById('ref-sel'),cur=sel.value;
   let html='<option value="gps">📍 Posizione GPS</option>';
-  waypoints.forEach((w,i)=>{const s=w.name.length>42?w.name.slice(0,42)+'…':w.name;
-    html+=`<option value="wp:${i}">📌 ${escH(s)}</option>`;});
-  sel.innerHTML=html;
-  if([...sel.options].some(o=>o.value===cur)) sel.value=cur;
+  waypoints.forEach((w,i)=>{const s=w.name.length>42?w.name.slice(0,42)+'…':w.name;html+=`<option value="wp:${i}">📌 ${escH(s)}</option>`;});
+  sel.innerHTML=html;if([...sel.options].some(o=>o.value===cur))sel.value=cur;
 }
-
 function getRefPos(){
-  const v=document.getElementById('ref-sel').value;
-  if(v==='gps') return gpsPos;
-  const i=parseInt(v.replace('wp:',''));
-  return !isNaN(i)&&waypoints[i]?{lat:waypoints[i].lat,lon:waypoints[i].lon}:null;
+  const v=document.getElementById('ref-sel').value;if(v==='gps')return gpsPos;
+  const i=parseInt(v.replace('wp:',''));return !isNaN(i)&&waypoints[i]?{lat:waypoints[i].lat,lon:waypoints[i].lon}:null;
 }
-
 function renderPoiTable(){
-  const tb=document.getElementById('poi-body');
-  const ref=getRefPos(); const rows=[];
+  const tb=document.getElementById('poi-body'),ref=getRefPos(),rows=[];
   if(gpsPos){
-    const isRef=(document.getElementById('ref-sel').value==='gps');
+    const isRef=document.getElementById('ref-sel').value==='gps';
     const d=!isRef&&ref?haversDist(ref.lat,ref.lon,gpsPos.lat,gpsPos.lon):null;
     rows.push(`<tr class="gps-row ${gpsPos.sel?'sel':''}" onclick="toggleGpsSel()">
       <td><input type="checkbox" ${gpsPos.sel?'checked':''} onclick="event.stopPropagation();toggleGpsSel()"></td>
@@ -603,13 +581,12 @@ function renderPoiTable(){
       <td class="mono">${d!=null?fmtDist(d):'—'}</td><td></td></tr>`);
   }
   waypoints.forEach((w,i)=>{
-    const isRef=(document.getElementById('ref-sel').value===`wp:${i}`);
+    const isRef=document.getElementById('ref-sel').value===`wp:${i}`;
     const d=!isRef&&ref?haversDist(ref.lat,ref.lon,w.lat,w.lon):null;
     rows.push(`<tr class="${w.sel?'sel':''}">
       <td><input type="checkbox" ${w.sel?'checked':''} onchange="togglePoi(${i})"></td>
       <td style="max-width:160px;padding:4px 8px;">
-        <input class="wp-name-input" value="${escAttr(w.name)}"
-          onchange="renameWp(${i},this.value)" onclick="event.stopPropagation()">
+        <input class="wp-name-input" value="${escAttr(w.name)}" onchange="renameWp(${i},this.value)" onclick="event.stopPropagation()">
       </td>
       <td class="mono">${w.ele!=null?Math.round(w.ele):'—'}</td>
       <td class="mono">${d!=null?fmtDist(d):'—'}</td>
@@ -621,13 +598,11 @@ function togglePoi(i){waypoints[i].sel=!waypoints[i].sel;render();}
 function renameWp(i,n){if(!n.trim())return;waypoints[i].name=n.trim();updateRefSelect();save();}
 function delPoi(i){waypoints.splice(i,1);render();}
 function toggleGpsSel(){if(gpsPos){gpsPos.sel=!gpsPos.sel;renderPoiTable();}}
-function save(){localStorage.setItem('pam_wp',JSON.stringify(waypoints));}
 
-// ═══════════════ MAP CLICK (WP) ═══════════════════════════════════════════════
+// map click to add WP
 function toggleMapClick(){
   mapClickMode=!mapClickMode;
-  const btn=document.getElementById('btn-mapclick');
-  btn.className='btn btn-sm'+(mapClickMode?' btn-active-map':'');
+  document.getElementById('btn-mapclick').className='btn btn-sm'+(mapClickMode?' btn-active-map':'');
   map1.getContainer().style.cursor=mapClickMode?'crosshair':'';
 }
 map1.on('click',e=>{
@@ -636,161 +611,120 @@ map1.on('click',e=>{
   fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`,{headers:{'Accept-Language':'it'}})
   .then(r=>r.json()).then(d=>{
     waypoints.push({name:d.display_name||`${lat.toFixed(5)},${lng.toFixed(5)}`,lat,lon:lng,ele:null,sel:true});
-    fetchEle(waypoints.length-1,lat,lng); render(); showToast('WP aggiunto ✓');
+    fetchEle(waypoints.length-1,lat,lng);render();showToast('WP aggiunto ✓');
   }).catch(()=>{waypoints.push({name:`${lat.toFixed(5)}, ${lng.toFixed(5)}`,lat,lon:lng,ele:null,sel:true});render();});
 });
 
-// ═══════════════ GPS ══════════════════════════════════════════════════════════
 function getGPS(){
   if(!navigator.geolocation){showToast('GPS non disponibile');return;}
   navigator.geolocation.getCurrentPosition(p=>{
     const{latitude:lat,longitude:lon,altitude:alt}=p.coords;
     gpsPos={lat,lon,alt,sel:false};
-    if(gpsMarker1) map1.removeLayer(gpsMarker1);
+    if(gpsMarker1)map1.removeLayer(gpsMarker1);
     gpsMarker1=L.marker([lat,lon],{icon:makeDot('#3fb950',16)}).addTo(map1).bindPopup('<b>📍 Posizione attuale</b>');
-    map1.setView([lat,lon],14); render(); showToast('Posizione acquisita ✓');
+    map1.setView([lat,lon],14);render();showToast('Posizione acquisita ✓');
   },()=>showToast('Impossibile acquisire GPS'));
 }
-
-// ═══════════════ ELEVATION ═══════════════════════════════════════════════════
 function fetchEle(idx,lat,lon){
   fetch(`https://api.open-elevation.com/api/v1/lookup?locations=${lat},${lon}`)
   .then(r=>r.json()).then(d=>{if(d.results?.[0]){waypoints[idx].ele=d.results[0].elevation;renderPoiTable();}}).catch(()=>{});
 }
 
-// ═══════════════ LIVE SEARCH ══════════════════════════════════════════════════
+// live search
 function liveSearch(inputId,dropId,onPick){
   clearTimeout(searchTimers[inputId]);
   searchTimers[inputId]=setTimeout(()=>{
-    const q=document.getElementById(inputId).value.trim();
-    if(q.length<3){closeDrop(dropId);return;}
+    const q=document.getElementById(inputId).value.trim();if(q.length<3){closeDrop(dropId);return;}
     fetch('https://nominatim.openstreetmap.org/search?format=json&limit=5&q='+encodeURIComponent(q),{headers:{'Accept-Language':'it'}})
     .then(r=>r.json()).then(d=>{
-      const dd=document.getElementById(dropId);
-      if(!d.length){dd.style.display='none';return;}
-      dd.innerHTML='';
-      d.forEach(r=>{
+      const dd=document.getElementById(dropId);if(!d.length){dd.style.display='none';return;}
+      dd.innerHTML='';d.forEach(r=>{
         const div=document.createElement('div');div.className='si';div.textContent=r.display_name;
         div.onclick=()=>{document.getElementById(inputId).value=r.display_name;closeDrop(dropId);if(onPick)onPick(r.display_name,parseFloat(r.lat),parseFloat(r.lon));};
         dd.appendChild(div);
-      });
-      dd.style.display='block';
+      });dd.style.display='block';
     }).catch(()=>{});
   },320);
 }
-function closeDrop(id){const el=document.getElementById(id);if(el)el.style.display='none';}
-
 function addPoiFromSearch(){
   const q=document.getElementById('poi-search').value.trim();if(!q)return;
   fetch('https://nominatim.openstreetmap.org/search?format=json&limit=1&q='+encodeURIComponent(q),{headers:{'Accept-Language':'it'}})
   .then(r=>r.json()).then(d=>{
     if(!d.length){showToast('Nessun risultato');return;}
     waypoints.push({name:d[0].display_name,lat:+d[0].lat,lon:+d[0].lon,ele:null,sel:true});
-    fetchEle(waypoints.length-1,+d[0].lat,+d[0].lon);
-    map1.setView([+d[0].lat,+d[0].lon],14); render(); showToast('POI aggiunto ✓');
+    fetchEle(waypoints.length-1,+d[0].lat,+d[0].lon);map1.setView([+d[0].lat,+d[0].lon],14);render();showToast('POI aggiunto ✓');
   }).catch(()=>showToast('Errore ricerca'));
 }
 document.getElementById('poi-search').addEventListener('input',function(){
   liveSearch('poi-search','poi-sdrop',(name,lat,lon)=>{
-    waypoints.push({name,lat,lon,ele:null,sel:true}); fetchEle(waypoints.length-1,lat,lon);
-    map1.setView([lat,lon],14); render(); showToast('POI aggiunto ✓');
-    document.getElementById('poi-search').value='';
+    waypoints.push({name,lat,lon,ele:null,sel:true});fetchEle(waypoints.length-1,lat,lon);
+    map1.setView([lat,lon],14);render();showToast('POI aggiunto ✓');this.value='';
   });
 });
 
-// ═══════════════ IMPORT / EXPORT ═════════════════════════════════════════════
+// ═══ IMPORT / EXPORT ═════════════════════════════════════════════════════════
 document.getElementById('poi-file-input').addEventListener('change',function(e){parseGPXFile(e.target.files[0],true,true);this.value='';});
 document.getElementById('trk-file-input').addEventListener('change',function(e){parseGPXFile(e.target.files[0],false,true);this.value='';});
 
 function parseGPXFile(file,importWp,importTrk){
-  if(!file)return;
-  const reader=new FileReader();
+  if(!file)return;const reader=new FileReader();
   reader.onload=function(){
     const xml=new DOMParser().parseFromString(reader.result,'text/xml');
     let wc=0,tc=0;
-    if(importWp){
-      for(const p of xml.getElementsByTagName('wpt')){
-        const lat=+p.getAttribute('lat'),lon=+p.getAttribute('lon');
-        const name=p.querySelector('name')?.textContent||'WP';
-        const ele=p.querySelector('ele')?+p.querySelector('ele').textContent:null;
-        waypoints.push({name,lat,lon,ele,sel:true});wc++;
-      }
-    }
-    if(importTrk){
-      for(const trk of xml.getElementsByTagName('trk')){
-        importTrack(trk.querySelector('name')?.textContent||file.name.replace('.gpx',''),trk);tc++;
-      }
-    }
+    if(importWp){for(const p of xml.getElementsByTagName('wpt')){
+      const lat=+p.getAttribute('lat'),lon=+p.getAttribute('lon');
+      const name=p.querySelector('name')?.textContent||'WP';
+      const ele=p.querySelector('ele')?+p.querySelector('ele').textContent:null;
+      waypoints.push({name,lat,lon,ele,sel:true});wc++;
+    }}
+    if(importTrk){for(const trk of xml.getElementsByTagName('trk')){
+      importTrack(trk.querySelector('name')?.textContent||file.name.replace('.gpx',''),trk);tc++;
+    }}
     if(wc>0){const lngs=waypoints.map(w=>w.lon),lats=waypoints.map(w=>w.lat);
       map1.fitBounds([[Math.min(...lats),Math.min(...lngs)],[Math.max(...lats),Math.max(...lngs)]],{padding:[40,40]});}
-    render(); showToast(`${wc} WP + ${tc} tracce importati ✓`);
-  };
-  reader.readAsText(file);
+    render();showToast(`${wc} WP + ${tc} tracce importati ✓`);
+  };reader.readAsText(file);
 }
-
 function importTrack(name,trkEl){
   const pts=[];
   for(const pt of trkEl.getElementsByTagName('trkpt')){
-    pts.push({lat:+pt.getAttribute('lat'),lon:+pt.getAttribute('lon'),
-      ele:pt.querySelector('ele')?+pt.querySelector('ele').textContent:null});
+    pts.push({lat:+pt.getAttribute('lat'),lon:+pt.getAttribute('lon'),ele:pt.querySelector('ele')?+pt.querySelector('ele').textContent:null});
   }
   if(!pts.length)return;
-  const len=calcLen(pts);
-  const idx=tracks.length;
+  const len=calcLen(pts),idx=tracks.length;
   tracks.push({name,pts,len,onMap3:true});
-  addTrackToMap3(idx);
-  renderTrackTable();
-  const lats=pts.map(p=>p.lat),lngs=pts.map(p=>p.lon);
-  map3.fitBounds([[Math.min(...lats),Math.min(...lngs)],[Math.max(...lats),Math.max(...lngs)]],{padding:[30,30],maxZoom:14});
+  addTrackToMap3(idx);renderTrackTable();
+  map3.fitBounds(L.latLngBounds(pts.map(p=>[p.lat,p.lon])),{padding:[30,30],maxZoom:14});
 }
-
-function addTrackToMap2(idx){}  // not used in OSM version
-
 function addTrackToMap3(idx){
   if(idx<0||idx>=tracks.length)return;
-  const t=tracks[idx];
-  if(t.onMap3===false)return;
-  // remove existing
+  const t=tracks[idx];if(t.onMap3===false)return;
   if(trkLayers3[idx]){try{map3.removeLayer(trkLayers3[idx]);}catch(e){}}
-  const latlngs=t.pts.map(p=>[p.lat,p.lon]);
-  trkLayers3[idx]=L.polyline(latlngs,{color:'#a371f7',weight:2.5,opacity:.85,dashArray:'8 5'}).addTo(map3);
+  trkLayers3[idx]=L.polyline(t.pts.map(p=>[p.lat,p.lon]),{color:'#a371f7',weight:2.5,opacity:.85,dashArray:'8 5'}).addTo(map3);
 }
-
-function removeTrackFromMap3(idx){
-  if(trkLayers3[idx]){try{map3.removeLayer(trkLayers3[idx]);}catch(e){}trkLayers3[idx]=null;}
-}
-
+function removeTrackFromMap3(idx){if(trkLayers3[idx]){try{map3.removeLayer(trkLayers3[idx]);}catch(e){}delete trkLayers3[idx];}}
+function addTrackToMap2(idx){}  // no-op for OSM version
 function renderTrackTable(){
-  const tb=document.getElementById('trk-body');
-  const tbl=document.getElementById('trk-table-unified');
-  if(!tracks.length){if(tbl)tbl.style.display='none';return;}
-  if(tbl)tbl.style.display='';
+  const tb=document.getElementById('trk-body'),panel=document.getElementById('trk-imported-panel');
+  if(!tracks.length){if(panel)panel.style.display='none';if(tb)tb.innerHTML='';return;}
+  if(panel)panel.style.display='';
   tb.innerHTML=tracks.map((t,i)=>{
-    const elePts=t.pts.filter(p=>p.ele!=null);
-    let gain=0;
-    for(let j=1;j<elePts.length;j++){const d=elePts[j].ele-elePts[j-1].ele;if(d>0.5)gain+=d;}
-    const gainStr=gain>0?'+'+Math.round(gain)+' m':'—';
+    const ep=t.pts.filter(p=>p.ele!=null);let gain=0;
+    for(let j=1;j<ep.length;j++){const d=ep[j].ele-ep[j-1].ele;if(d>0.5)gain+=d;}
     return `<tr style="border-bottom:1px solid rgba(48,54,61,.4);">
       <td style="padding:6px 8px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escAttr(t.name)}">${escH(t.name)}</td>
       <td class="mono" style="padding:6px 8px;">${fmtDist(t.len)}</td>
-      <td class="mono" style="padding:6px 8px;color:var(--accent2);">${gainStr}</td>
+      <td class="mono" style="padding:6px 8px;color:var(--accent2);">${gain>0?'+'+Math.round(gain)+' m':'—'}</td>
       <td style="padding:4px;text-align:center;"><button class="track-btn" onclick="openElev(${i})" style="padding:2px 6px;">📈</button></td>
       <td style="padding:4px;text-align:center;"><button class="del-btn" onclick="delTrack(${i})">✕</button></td>
     </tr>`;
   }).join('');
 }
-
-function delTrack(i){
-  removeTrackFromMap3(i); trkLayers3.splice(i,1);
-  tracks.splice(i,1); renderTrackTable();
-}
+function delTrack(i){removeTrackFromMap3(i);tracks.splice(i,1);renderTrackTable();}
 function clearTracks(){
-  if(!tracks.length)return;
-  if(!confirm(`Rimuovere tutte le ${tracks.length} tracce?`))return;
-  tracks.forEach((_,i)=>removeTrackFromMap3(i));
-  trkLayers3=[]; tracks=[]; renderTrackTable();
+  if(!tracks.length)return;if(!confirm('Rimuovere tutte le tracce?'))return;
+  tracks.forEach((_,i)=>removeTrackFromMap3(i));tracks=[];renderTrackTable();
 }
-
 function exportGPX(){
   const exp=[];
   if(gpsPos&&gpsPos.sel)exp.push({name:'Posizione GPS',lat:gpsPos.lat,lon:gpsPos.lon,ele:gpsPos.alt});
@@ -798,195 +732,136 @@ function exportGPX(){
   if(!exp.length){showToast('Seleziona almeno un POI');return;}
   let xml='<?xml version="1.0" encoding="UTF-8"?>\n<gpx version="1.1" creator="PAM" xmlns="http://www.topografix.com/GPX/1/1">\n';
   exp.forEach(w=>{const el=w.ele!=null?`<ele>${w.ele}</ele>`:'';xml+=`  <wpt lat="${w.lat}" lon="${w.lon}">${el}<n>${escH(w.name)}</n></wpt>\n`;});
-  xml+='</gpx>';
-  dlBlob(xml,'POI_export.gpx','application/gpx+xml');
-  showToast(`${exp.length} POI esportati ✓`);
+  xml+='</gpx>';dlBlob(xml,'POI_export.gpx','application/gpx+xml');showToast(`${exp.length} POI esportati ✓`);
 }
 function clearAll(){
-  if(!waypoints.length&&!gpsPos)return;
-  if(!confirm('Rimuovere tutti i waypoint?'))return;
-  waypoints=[];gpsPos=null;
-  if(gpsMarker1){map1.removeLayer(gpsMarker1);gpsMarker1=null;}
-  render();
+  if(!waypoints.length&&!gpsPos)return;if(!confirm('Rimuovere tutti i waypoint?'))return;
+  waypoints=[];gpsPos=null;if(gpsMarker1){map1.removeLayer(gpsMarker1);gpsMarker1=null;}render();
 }
 
-// ═══════════════ DRAW TRACK (map3 / Leaflet) ═════════════════════════════════
-const DRAW_COLOR='#e03030';
-let drawLine=null; // Leaflet polyline for drawn route
-
-function initDrawLayers(){}  // not needed for Leaflet
-
+// ═══ DRAW TRACK ══════════════════════════════════════════════════════════════
 function drawRenderWpMarkers(){
   drawWpMarkers.forEach(m=>map3.removeLayer(m));drawWpMarkers=[];
   waypoints.filter(w=>w.sel).forEach(w=>{
     const m=L.marker([w.lat,w.lon],{icon:makeDot('#3b82f6',14)}).addTo(map3)
       .bindPopup(`<b style="color:#3b82f6">📌 ${escH(w.name)}</b><br><small>Tocca per aggiungere alla traccia</small>`);
-    m.on('click',e=>{e.originalEvent.stopPropagation();if(drawPending)return;drawAddNode(w.lat,w.lon);});
+    m.on('click',e=>{L.DomEvent.stopPropagation(e);if(drawPending)return;drawAddNode(w.lat,w.lon);});
     drawWpMarkers.push(m);
   });
 }
-
 map3.on('click',e=>{if(drawPending)return;drawAddNode(e.latlng.lat,e.latlng.lng);});
 
-function setSegMode(mode){
-  drawSegMode=mode;
-  document.getElementById('seg-walk').className='mode-btn walk'+(mode==='foot'?' active':'');
-  document.getElementById('seg-drive').className='mode-btn drive'+(mode==='driving'?' active':'');
-  document.getElementById('seg-line').className='mode-btn'+(mode==='line'?' active line-mode':'');
+function setSegMode(m){
+  drawSegMode=m;
+  document.getElementById('seg-walk').className='mode-btn walk'+(m==='foot'?' active':'');
+  document.getElementById('seg-drive').className='mode-btn drive'+(m==='driving'?' active':'');
+  document.getElementById('seg-line').className='mode-btn'+(m==='line'?' active line-mode':'');
 }
-
 function drawSearchGo(){
   const q=document.getElementById('draw-search').value.trim();if(!q)return;
   fetch('https://nominatim.openstreetmap.org/search?format=json&limit=1&q='+encodeURIComponent(q),{headers:{'Accept-Language':'it'}})
   .then(r=>r.json()).then(d=>{if(!d.length){showToast('Nessun risultato');return;}drawAddStart(+d[0].lat,+d[0].lon);document.getElementById('draw-search').value=d[0].display_name;}).catch(()=>showToast('Errore ricerca'));
 }
 document.getElementById('draw-search').addEventListener('input',function(){
-  liveSearch('draw-search','draw-sdrop',(name,lat,lon)=>{closeDrop('draw-sdrop');document.getElementById('draw-search').value=name;drawAddStart(lat,lon);});
+  liveSearch('draw-search','draw-sdrop',(name,lat,lon)=>{closeDrop('draw-sdrop');this.value=name;drawAddStart(lat,lon);});
 });
-function drawUseGPS(){
-  if(!gpsPos){showToast('Prima acquisisci il GPS nella schermata Waypoint');return;}
-  drawAddStart(gpsPos.lat,gpsPos.lon);
-}
+function drawUseGPS(){if(!gpsPos){showToast('Prima acquisisci il GPS');return;}drawAddStart(gpsPos.lat,gpsPos.lon);}
 function drawAddStart(lat,lon){drawAddNode(lat,lon);if(drawNodes.length===1)map3.setView([lat,lon],13);}
 
 async function drawAddNode(lat,lon){
   if(drawPending)return;
   const ele=await fetchEleVal(lat,lon);
-  const node={lat,lon,ele};
-  drawNodes.push(node);
-  const idx=drawNodes.length-1;
-  const color=idx===0?'#3fb950':'#e03030';
-  const size=idx===0?18:13;
-  const m=L.marker([lat,lon],{icon:makeDot(color,size)}).addTo(map3)
+  const node={lat,lon,ele};drawNodes.push(node);const idx=drawNodes.length-1;
+  const m=L.marker([lat,lon],{icon:makeDot(idx===0?'#3fb950':'#e03030',idx===0?18:13)}).addTo(map3)
     .bindPopup(`<b>${idx===0?'▶ Partenza':'Punto '+idx}</b><br>${lat.toFixed(5)}, ${lon.toFixed(5)}${ele!=null?'<br>'+Math.round(ele)+' m':''}`);
   drawNodeMarkers.push(m);
   if(idx===0){drawSegments.push([]);drawUpdateStatus();return;}
-  drawPending=true;
-  const prev=drawNodes[idx-1];
-  let segPts;
-  if(drawSegMode==='line')segPts=drawLineSeg(prev,node);
-  else{segPts=await drawRouteSeg(prev,node,drawSegMode)||drawLineSeg(prev,node);}
-  segPts=await enrichElevation(segPts);
-  drawSegments.push(segPts);
-  drawPending=false;
-  redrawRoute();
-  drawUpdateStatus();
+  drawPending=true;const prev=drawNodes[idx-1];
+  let seg;if(drawSegMode==='line')seg=lineSeg(prev,node);
+  else{seg=await routeSeg(prev,node,drawSegMode)||lineSeg(prev,node);}
+  seg=await enrichElevation(seg);drawSegments.push(seg);drawPending=false;
+  redrawRoute();drawUpdateStatus();
 }
-
 function redrawRoute(){
-  if(drawLine){map3.removeLayer(drawLine);drawLine=null;}
+  if(drawPolyline){map3.removeLayer(drawPolyline);drawPolyline=null;}
   const coords=[];
-  drawNodes.forEach((n,i)=>{
-    if(i===0){coords.push([n.lat,n.lon]);return;}
-    const seg=drawSegments[i]||[];
-    if(seg.length>1)seg.forEach(p=>coords.push([p.lat,p.lon]));
-    else coords.push([n.lat,n.lon]);
-  });
-  if(coords.length>1) drawLine=L.polyline(coords,{color:DRAW_COLOR,weight:3,opacity:.9}).addTo(map3);
+  drawNodes.forEach((n,i)=>{if(i===0){coords.push([n.lat,n.lon]);return;}
+    const s=drawSegments[i]||[];if(s.length>1)s.forEach(p=>coords.push([p.lat,p.lon]));else coords.push([n.lat,n.lon]);});
+  if(coords.length>1)drawPolyline=L.polyline(coords,{color:'#e03030',weight:3,opacity:.9}).addTo(map3);
 }
-
-function drawLineSeg(a,b){
-  const pts=[];for(let i=0;i<=10;i++){const f=i/10;pts.push({lat:a.lat+(b.lat-a.lat)*f,lon:a.lon+(b.lon-a.lon)*f,ele:null});}return pts;
-}
-async function drawRouteSeg(a,b,profile){
-  try{
-    const url=`https://router.project-osrm.org/route/v1/${profile}/${a.lon},${a.lat};${b.lon},${b.lat}?overview=full&geometries=geojson`;
-    const res=await fetch(url);const data=await res.json();
-    if(data.code!=='Ok'||!data.routes?.length)return null;
-    return data.routes[0].geometry.coordinates.map(c=>({lat:c[1],lon:c[0],ele:null}));
-  }catch(e){return null;}
+function lineSeg(a,b){const p=[];for(let i=0;i<=10;i++){const f=i/10;p.push({lat:a.lat+(b.lat-a.lat)*f,lon:a.lon+(b.lon-a.lon)*f,ele:null});}return p;}
+async function routeSeg(a,b,profile){
+  try{const r=await fetch(`https://router.project-osrm.org/route/v1/${profile}/${a.lon},${a.lat};${b.lon},${b.lat}?overview=full&geometries=geojson`);
+  const d=await r.json();if(d.code!=='Ok'||!d.routes?.length)return null;
+  return d.routes[0].geometry.coordinates.map(c=>({lat:c[1],lon:c[0],ele:null}));}catch(e){return null;}
 }
 async function fetchEleVal(lat,lon){
   try{const r=await fetch(`https://api.open-elevation.com/api/v1/lookup?locations=${lat},${lon}`);const d=await r.json();return d.results?.[0]?.elevation??null;}catch(e){return null;}
 }
 async function enrichElevation(pts){
-  if(!pts.length)return pts;
-  const step=Math.max(1,Math.ceil(pts.length/50));
+  if(!pts.length)return pts;const step=Math.max(1,Math.ceil(pts.length/50));
   const sample=pts.filter((_,i)=>i%step===0||i===pts.length-1);
-  try{
-    const locStr=sample.map(p=>`${p.lat},${p.lon}`).join('|');
-    const r=await fetch(`https://api.open-elevation.com/api/v1/lookup?locations=${locStr}`);
-    const d=await r.json();if(!d.results)return pts;
+  try{const locStr=sample.map(p=>`${p.lat},${p.lon}`).join('|');
+    const r=await fetch(`https://api.open-elevation.com/api/v1/lookup?locations=${locStr}`);const d=await r.json();if(!d.results)return pts;
     let si=0;pts.forEach((p,i)=>{if(i%step===0||i===pts.length-1){p.ele=d.results[si]?.elevation??null;si++;}});
-    for(let i=0;i<pts.length;i++){if(pts[i].ele===null){let prev=i-1;while(prev>=0&&pts[prev].ele===null)prev--;let next=i+1;while(next<pts.length&&pts[next].ele===null)next++;if(prev>=0&&next<pts.length){const f=(i-prev)/(next-prev);pts[i].ele=pts[prev].ele+(pts[next].ele-pts[prev].ele)*f;}}}
-  }catch(e){}
-  return pts;
+    for(let i=0;i<pts.length;i++){if(pts[i].ele===null){let a=i-1;while(a>=0&&pts[a].ele===null)a--;let b=i+1;while(b<pts.length&&pts[b].ele===null)b++;if(a>=0&&b<pts.length){const f=(i-a)/(b-a);pts[i].ele=pts[a].ele+(pts[b].ele-pts[a].ele)*f;}}}
+  }catch(e){}return pts;
 }
-
 function drawUndo(){
-  if(!drawNodes.length){showToast('Nessun punto da annullare');return;}
-  drawNodes.pop();const m=drawNodeMarkers.pop();if(m)map3.removeLayer(m);
-  if(drawSegments.length>0)drawSegments.pop();
-  redrawRoute();drawUpdateStatus();
+  if(!drawNodes.length)return;drawNodes.pop();const m=drawNodeMarkers.pop();if(m)map3.removeLayer(m);
+  if(drawSegments.length)drawSegments.pop();redrawRoute();drawUpdateStatus();showToast('Punto annullato');
 }
 function drawClear(){
-  if(!drawNodes.length)return;
-  if(!confirm('Cancellare tutta la traccia?'))return;
+  if(!drawNodes.length)return;if(!confirm('Cancellare tutta la traccia?'))return;
   drawNodeMarkers.forEach(m=>map3.removeLayer(m));drawNodeMarkers=[];
-  if(drawLine){map3.removeLayer(drawLine);drawLine=null;}
+  if(drawPolyline){map3.removeLayer(drawPolyline);drawPolyline=null;}
   drawNodes=[];drawSegments=[];drawPending=false;
-  document.getElementById('draw-search').value='';
-  drawUpdateStatus();showToast('Traccia azzerata');
+  document.getElementById('draw-search').value='';drawUpdateStatus();
 }
-
 function drawUpdateStatus(){
-  const allPts=drawSegments.flat();const n=drawNodes.length;const dist=n>1?calcLen(allPts):0;
+  const ap=drawSegments.flat(),n=drawNodes.length,dist=n>1?calcLen(ap):0;
   let gain=0,loss=0;
-  for(let i=1;i<allPts.length;i++){if(allPts[i].ele==null||allPts[i-1].ele==null)continue;const diff=allPts[i].ele-allPts[i-1].ele;if(diff>0.5)gain+=diff;else if(diff<-0.5)loss+=Math.abs(diff);}
+  for(let i=1;i<ap.length;i++){if(ap[i].ele==null||ap[i-1].ele==null)continue;const d=ap[i].ele-ap[i-1].ele;if(d>0.5)gain+=d;else if(d<-0.5)loss+=Math.abs(d);}
   document.getElementById('di-pts').textContent=n>0?`${n} pt`:'— pt';
   document.getElementById('di-len').textContent=n>1?fmtDist(dist):'—';
   document.getElementById('di-dp').textContent=n>1?`D+ ${Math.round(gain)} m`:'D+ —';
   document.getElementById('di-dm').textContent=n>1?`D− ${Math.round(loss)} m`:'D− —';
-  const btn=document.getElementById('btn-draw-elev');
-  if(btn)btn.style.display=(n>1&&allPts.some(p=>p.ele!=null))?'':'none';
+  const eb=document.getElementById('btn-draw-elev');if(eb)eb.style.display=(n>1&&ap.some(p=>p.ele!=null))?'':'none';
 }
 function openDrawElev(){
-  const allPts=drawSegments.flat().filter(p=>p.ele!=null);
-  if(!allPts.length){showToast('Nessun dato altimetrico');return;}
-  const trkName=document.getElementById('draw-name')?.value||'Traccia';
-  document.getElementById('modal-title').textContent=trkName;
-  document.getElementById('modal-sub').textContent=`${fmtDist(calcLen(allPts))} · ${allPts.length} punti`;
-  document.getElementById('elev-modal').classList.add('open');
-  requestAnimationFrame(()=>drawElevProfile(allPts));
+  const ap=drawSegments.flat().filter(p=>p.ele!=null);if(!ap.length){showToast('Nessun dato altimetrico');return;}
+  const tn=document.getElementById('draw-name')?.value||'Traccia';
+  document.getElementById('modal-title').textContent=tn;
+  document.getElementById('modal-sub').textContent=`${fmtDist(calcLen(ap))} · ${ap.length} punti`;
+  document.getElementById('elev-modal').classList.add('open');requestAnimationFrame(()=>drawElevProfile(ap));
 }
 async function drawExport(){
-  if(drawNodes.length<2){showToast('Aggiungi almeno 2 punti');return;}
-  showToast('⏳ Preparazione GPX…');
-  const allPts=[drawNodes[0]];
-  for(let i=1;i<drawNodes.length;i++){const seg=drawSegments[i]||[];if(seg.length>1)allPts.push(...seg.slice(1));else allPts.push(drawNodes[i]);}
-  const today=new Date();
-  const yy=String(today.getFullYear()).slice(2),mm=String(today.getMonth()+1).padStart(2,'0'),dd=String(today.getDate()).padStart(2,'0');
-  const trkName=(document.getElementById('draw-name').value.trim()||'traccia');
-  const safeName=trkName.replace(/[^a-zA-Z0-9_\-àèéìòùÀÈÉÌÒÙ ]/g,'_').replace(/ +/g,'_');
-  const fileName=`${safeName}_${yy}${mm}${dd}`;
-  let xml='<?xml version="1.0" encoding="UTF-8"?>\n';
-  xml+=`<gpx version="1.1" creator="PAM-OSM" xmlns="http://www.topografix.com/GPX/1/1">\n`;
-  xml+=`  <trk><n>${escH(trkName)}</n><trkseg>\n`;
-  allPts.forEach(p=>{const el=p.ele!=null?`<ele>${p.ele.toFixed(1)}</ele>`:'';xml+=`    <trkpt lat="${p.lat.toFixed(6)}" lon="${p.lon.toFixed(6)}">${el}</trkpt>\n`;});
-  xml+=`  </trkseg></trk>\n</gpx>`;
-  dlBlob(xml,fileName+'.gpx','application/gpx+xml');
-  showToast(`Esportato: ${fileName}.gpx ✓`);
+  if(drawNodes.length<2){showToast('Aggiungi almeno 2 punti');return;}showToast('⏳ Preparazione…');
+  const ap=[drawNodes[0]];for(let i=1;i<drawNodes.length;i++){const s=drawSegments[i]||[];if(s.length>1)ap.push(...s.slice(1));else ap.push(drawNodes[i]);}
+  const t=new Date(),yy=String(t.getFullYear()).slice(2),mm=String(t.getMonth()+1).padStart(2,'0'),dd=String(t.getDate()).padStart(2,'0');
+  const tn=(document.getElementById('draw-name').value.trim()||'traccia');
+  const fn=tn.replace(/[^a-zA-Z0-9_\-àèéìòù ]/g,'_').replace(/ +/g,'_')+`_${yy}${mm}${dd}`;
+  let xml='<?xml version="1.0" encoding="UTF-8"?>\n<gpx version="1.1" creator="PAM-OSM" xmlns="http://www.topografix.com/GPX/1/1">\n';
+  xml+=`  <trk><n>${escH(tn)}</n><trkseg>\n`;
+  ap.forEach(p=>{const el=p.ele!=null?`<ele>${p.ele.toFixed(1)}</ele>`:'';xml+=`    <trkpt lat="${p.lat.toFixed(6)}" lon="${p.lon.toFixed(6)}">${el}</trkpt>\n`;});
+  xml+=`  </trkseg></trk>\n</gpx>`;dlBlob(xml,fn+'.gpx','application/gpx+xml');showToast(`Esportato: ${fn}.gpx ✓`);
 }
 
-// ═══════════════ ELEVATION MODAL ═════════════════════════════════════════════
+// ═══ ELEVATION MODAL ═════════════════════════════════════════════════════════
 function openElev(i){
-  const t=tracks[i];
-  document.getElementById('modal-title').textContent=t.name;
+  const t=tracks[i];document.getElementById('modal-title').textContent=t.name;
   document.getElementById('modal-sub').textContent=`${fmtDist(t.len)} · ${t.pts.length} punti`;
-  const pts=t.pts.filter(p=>p.ele!=null);
-  if(!pts.length){showToast('Nessun dato altimetrico');return;}
-  document.getElementById('elev-modal').classList.add('open');
-  requestAnimationFrame(()=>drawElevProfile(pts));
+  const pts=t.pts.filter(p=>p.ele!=null);if(!pts.length){showToast('Nessun dato altimetrico');return;}
+  document.getElementById('elev-modal').classList.add('open');requestAnimationFrame(()=>drawElevProfile(pts));
 }
 function closeModal(){document.getElementById('elev-modal').classList.remove('open');}
 function drawElevProfile(pts){
-  const canvas=document.getElementById('elev-canvas');
-  const DPR=window.devicePixelRatio||1;const W=canvas.offsetWidth,H=canvas.offsetHeight;
-  canvas.width=W*DPR;canvas.height=H*DPR;const ctx=canvas.getContext('2d');ctx.scale(DPR,DPR);
+  const canvas=document.getElementById('elev-canvas');const DPR=window.devicePixelRatio||1;
+  const W=canvas.offsetWidth,H=canvas.offsetHeight;canvas.width=W*DPR;canvas.height=H*DPR;
+  const ctx=canvas.getContext('2d');ctx.scale(DPR,DPR);
   const eles=pts.map(p=>p.ele),minE=Math.min(...eles),maxE=Math.max(...eles);
   const pad={t:16,b:28,l:44,r:12},gW=W-pad.l-pad.r,gH=H-pad.t-pad.b;
-  ctx.fillStyle='#161b22';ctx.fillRect(0,0,W,H);
-  ctx.strokeStyle='rgba(48,54,61,.6)';ctx.lineWidth=1;
+  ctx.fillStyle='#161b22';ctx.fillRect(0,0,W,H);ctx.strokeStyle='rgba(48,54,61,.6)';ctx.lineWidth=1;
   for(let s=0;s<=4;s++){const y=pad.t+gH*(1-s/4);ctx.beginPath();ctx.moveTo(pad.l,y);ctx.lineTo(pad.l+gW,y);ctx.stroke();ctx.fillStyle='#8b949e';ctx.font='9px IBM Plex Mono,monospace';ctx.textAlign='right';ctx.fillText(Math.round(minE+(maxE-minE)*(s/4))+'m',pad.l-4,y+3.5);}
   let cum=[0];for(let i=1;i<pts.length;i++)cum.push(cum[i-1]+haversDist(pts[i-1].lat,pts[i-1].lon,pts[i].lat,pts[i].lon));
   const tot=cum[cum.length-1];const toX=d=>pad.l+gW*(d/tot),toY=e=>pad.t+gH*(1-(e-minE)/(maxE-minE||1));
@@ -1000,202 +875,138 @@ function drawElevProfile(pts){
   document.getElementById('elev-stats').innerHTML=`<div class="stat-box"><div class="stat-label">Min</div><div class="stat-val">${Math.round(minE)} m</div></div><div class="stat-box"><div class="stat-label">Max</div><div class="stat-val">${Math.round(maxE)} m</div></div><div class="stat-box"><div class="stat-label">↑ Salita</div><div class="stat-val">+${Math.round(gain)} m</div></div><div class="stat-box"><div class="stat-label">↓ Discesa</div><div class="stat-val">-${Math.round(loss)} m</div></div>`;
 }
 
-// ═══════════════ NAVIGA ═══════════════════════════════════════════════════════
+// ═══ NAVIGA ═══════════════════════════════════════════════════════════════════
 let navDest=null,navActive=false,navWatchId=null,navPosMarker=null,navDestMarker=null;
-let navLastPos=null,navLastAlt=null,navCompassHdg=null,compassGranted=false;
-let navWpMarkers4=[];
+let navLastPos=null,navCompassHdg=null,compassGranted=false,navWpMarkers4=[];
 
 function renderNavMapMarkers(){
   navWpMarkers4.forEach(m=>map4.removeLayer(m));navWpMarkers4=[];
-  waypoints.filter(w=>w.sel).forEach((w,i)=>{
-    const isActive=navDest&&navDest._idx===i;
-    const el_=makeDot(isActive?'#f85149':'#e03030',isActive?20:14);
-    const m=L.marker([w.lat,w.lon],{icon:el_}).addTo(map4)
-      .bindPopup(`<b>${escH(w.name)}</b>${w.ele!=null?'<br>'+Math.round(w.ele)+' m slm':''}<br><small style="color:#3fb950">Tocca per navigare →</small>`);
-    m.on('click',()=>navSelectWp(waypoints.indexOf(w)));
-    navWpMarkers4.push(m);
+  waypoints.filter(w=>w.sel).forEach((w)=>{
+    const isActive=navDest&&navDest._idx===waypoints.indexOf(w);
+    const m=L.marker([w.lat,w.lon],{icon:makeDot(isActive?'#f85149':'#e03030',isActive?20:14)}).addTo(map4)
+      .bindPopup(`<b>${escH(w.name)}</b>${w.ele!=null?'<br>'+Math.round(w.ele)+' m slm':''}<br><small style="color:#3fb950">Tocca per navigare</small>`);
+    m.on('click',()=>navSelectWp(waypoints.indexOf(w)));navWpMarkers4.push(m);
   });
-  if(!navActive){
-    const sel=waypoints.filter(w=>w.sel);
+  if(!navActive){const sel=waypoints.filter(w=>w.sel);
     if(sel.length===1)map4.setView([sel[0].lat,sel[0].lon],13);
-    else if(sel.length>1)map4.fitBounds(L.latLngBounds(sel.map(w=>[w.lat,w.lon])),{padding:[50,50],maxZoom:14});
-  }
+    else if(sel.length>1)map4.fitBounds(L.latLngBounds(sel.map(w=>[w.lat,w.lon])),{padding:[50,50],maxZoom:14});}
 }
-
 async function navSelectWp(i){
-  const w=waypoints[i];if(!w)return;
-  if(navActive)navStop();
+  const w=waypoints[i];if(!w)return;if(navActive)navStop();
   let ele=w.ele;
   if(ele==null){try{const r=await fetch(`https://api.open-elevation.com/api/v1/lookup?locations=${w.lat},${w.lon}`);const d=await r.json();ele=d.results?.[0]?.elevation??null;}catch(e){}}
   navDest={lat:w.lat,lon:w.lon,name:w.name,ele,_idx:i};
   document.getElementById('nav-dest-name').textContent=w.name;
   document.getElementById('nav-alt-dest').textContent=ele!=null?Math.round(ele):'—';
   if(navDestMarker)map4.removeLayer(navDestMarker);
-  navDestMarker=L.marker([w.lat,w.lon],{icon:makeDot('#f85149',18)}).addTo(map4)
-    .bindPopup(`<b>🎯 ${escH(w.name)}</b>`);
+  navDestMarker=L.marker([w.lat,w.lon],{icon:makeDot('#f85149',18)}).addTo(map4).bindPopup(`<b>🎯 ${escH(w.name)}</b>`);
   if(navLastPos){
     map4.fitBounds([[Math.min(navLastPos.lat,w.lat),Math.min(navLastPos.lon,w.lon)],[Math.max(navLastPos.lat,w.lat),Math.max(navLastPos.lon,w.lon)]],{padding:[60,60],maxZoom:16});
-  } else {
-    map4.setView([w.lat,w.lon],13);
-  }
+  }else map4.setView([w.lat,w.lon],13);
   renderNavMapMarkers();navStart();showToast(`Navigazione verso: ${w.name}`);
 }
-
 function navClear(){
-  navStop();navDest=null;
-  if(navDestMarker){map4.removeLayer(navDestMarker);navDestMarker=null;}
+  navStop();navDest=null;if(navDestMarker){map4.removeLayer(navDestMarker);navDestMarker=null;}
   document.getElementById('nav-dest-name').textContent='Tocca un waypoint sulla mappa';
   document.getElementById('nav-dir-label').textContent='—';
   ['nav-dist','nav-dalt','nav-alt-you','nav-alt-dest'].forEach(id=>document.getElementById(id).textContent='—');
   document.getElementById('nav-arrow-svg').style.transform='rotate(0deg)';
-  document.getElementById('btn-nav-stop').style.display='none';
-  renderNavMapMarkers();
+  document.getElementById('btn-nav-stop').style.display='none';renderNavMapMarkers();
 }
-function navToggle(){if(!navDest){showToast('Tocca un waypoint sulla mappa');return;}if(navActive)navStop();else navStart();}
 function navStart(){
   if(!navigator.geolocation){showToast('GPS non disponibile');return;}
-  navActive=true;document.getElementById('btn-nav-stop').style.display='';
-  startCompass();
-  navWatchId=navigator.geolocation.watchPosition(navOnPos,e=>showToast('GPS: '+e.message),
-    {enableHighAccuracy:true,maximumAge:1000,timeout:15000});
+  navActive=true;document.getElementById('btn-nav-stop').style.display='';startCompass();
+  navWatchId=navigator.geolocation.watchPosition(navOnPos,e=>console.warn('GPS:',e),{enableHighAccuracy:true,maximumAge:1000,timeout:15000});
   showToast('Navigazione avviata ✓');
 }
 function navStop(){
-  navActive=false;stopCompass();
-  if(navWatchId!=null){navigator.geolocation.clearWatch(navWatchId);navWatchId=null;}
-  document.getElementById('btn-nav-stop').style.display='none';
-  setTimeout(renderNavMapMarkers,100);
+  navActive=false;stopCompass();if(navWatchId!=null){navigator.geolocation.clearWatch(navWatchId);navWatchId=null;}
+  document.getElementById('btn-nav-stop').style.display='none';setTimeout(renderNavMapMarkers,100);
 }
 function navOnPos(pos){
-  const{latitude:lat,longitude:lon,altitude:alt}=pos.coords;
-  navLastPos={lat,lon};if(alt!=null)navLastAlt=alt;
+  const{latitude:lat,longitude:lon,altitude:alt}=pos.coords;navLastPos={lat,lon};
   if(navPosMarker)map4.removeLayer(navPosMarker);
   navPosMarker=L.marker([lat,lon],{icon:makeDot('#3fb950',18)}).addTo(map4);
   if(navDest){
     const dist=haversDist(lat,lon,navDest.lat,navDest.lon);
     const dAlt=navDest.ele!=null&&alt!=null?Math.round(navDest.ele-alt):null;
-    map4.fitBounds([[Math.min(lat,navDest.lat)-0.001,Math.min(lon,navDest.lon)-0.001],[Math.max(lat,navDest.lat)+0.001,Math.max(lon,navDest.lon)+0.001]],{padding:[60,60],maxZoom:16});
+    map4.fitBounds([[Math.min(lat,navDest.lat)-.001,Math.min(lon,navDest.lon)-.001],[Math.max(lat,navDest.lat)+.001,Math.max(lon,navDest.lon)+.001]],{padding:[60,60],maxZoom:16});
     if(dist>=1000){document.getElementById('nav-dist').textContent=(dist/1000).toFixed(2);document.getElementById('nav-dist-unit').textContent='km';}
     else{document.getElementById('nav-dist').textContent=Math.round(dist);document.getElementById('nav-dist-unit').textContent='m';}
     document.getElementById('nav-dalt').textContent=dAlt!=null?(dAlt>=0?'+':'')+dAlt:'—';
     document.getElementById('nav-alt-you').textContent=alt!=null?Math.round(alt):'—';
     document.getElementById('nav-alt-dest').textContent=navDest.ele!=null?Math.round(navDest.ele):'—';
-    updateArrow();
-    if(dist<20){showToast('🎯 Destinazione raggiunta!');navStop();}
+    updateArrow();if(dist<20){showToast('🎯 Destinazione raggiunta!');navStop();}
   }
 }
-
 function requestCompassPermission(){
   if(typeof DeviceOrientationEvent!=='undefined'&&typeof DeviceOrientationEvent.requestPermission==='function'){
-    DeviceOrientationEvent.requestPermission().then(state=>{
-      if(state==='granted'){compassGranted=true;attachCompassListener();document.getElementById('btn-compass-req').textContent='🧭 ✓';showToast('Bussola autorizzata ✓');}
-      else showToast('Bussola negata');
-    }).catch(err=>showToast('Errore bussola: '+err.message));
-  } else {compassGranted=true;attachCompassListener();document.getElementById('btn-compass-req').textContent='🧭 ✓';}
+    DeviceOrientationEvent.requestPermission().then(s=>{if(s==='granted'){compassGranted=true;attachCompassListener();document.getElementById('btn-compass-req').textContent='🧭 ✓';showToast('Bussola autorizzata ✓');}else showToast('Bussola negata');}).catch(e=>showToast('Errore bussola'));
+  }else{compassGranted=true;attachCompassListener();document.getElementById('btn-compass-req').textContent='🧭 ✓';}
 }
 function attachCompassListener(){window.addEventListener('deviceorientation',onOrientation,true);}
 function startCompass(){if(compassGranted)attachCompassListener();}
 function stopCompass(){window.removeEventListener('deviceorientation',onOrientation,true);navCompassHdg=null;}
-function onOrientation(e){const hdg=e.webkitCompassHeading;if(hdg==null||isNaN(hdg))return;navCompassHdg=hdg;updateArrow();}
+function onOrientation(e){const h=e.webkitCompassHeading;if(h==null||isNaN(h))return;navCompassHdg=h;updateArrow();}
 function updateArrow(){
-  if(!navDest||navLastPos===null)return;
-  const bearingToDest=calcBearing(navLastPos.lat,navLastPos.lon,navDest.lat,navDest.lon);
-  const rot=navCompassHdg!=null?(bearingToDest-navCompassHdg+360)%360:bearingToDest;
+  if(!navDest||!navLastPos)return;
+  const b=calcBearing(navLastPos.lat,navLastPos.lon,navDest.lat,navDest.lon);
+  const rot=navCompassHdg!=null?(b-navCompassHdg+360)%360:b;
   document.getElementById('nav-arrow-svg').style.transform=`rotate(${rot}deg)`;
   const dirs=['N','NE','E','SE','S','SO','O','NO'];
-  const compassOk=navCompassHdg!=null;
-  document.getElementById('nav-dir-label').textContent='→ '+dirs[Math.round(bearingToDest/45)%8]+(compassOk?' · 🧭 '+Math.round(navCompassHdg)+'°':' · premi 🧭 Bussola');
+  document.getElementById('nav-dir-label').textContent='→ '+dirs[Math.round(b/45)%8]+(navCompassHdg!=null?' · 🧭 '+Math.round(navCompassHdg)+'°':' · premi 🧭 Bussola');
 }
-function calcBearing(lat1,lon1,lat2,lon2){
-  const r=Math.PI/180,dLon=(lon2-lon1)*r;
-  const y=Math.sin(dLon)*Math.cos(lat2*r);
-  const x=Math.cos(lat1*r)*Math.sin(lat2*r)-Math.sin(lat1*r)*Math.cos(lat2*r)*Math.cos(dLon);
-  return((Math.atan2(y,x)*180/Math.PI)+360)%360;
-}
+function calcBearing(a,b,c,d){const r=Math.PI/180,dl=(d-b)*r,y=Math.sin(dl)*Math.cos(c*r),x=Math.cos(a*r)*Math.sin(c*r)-Math.sin(a*r)*Math.cos(c*r)*Math.cos(dl);return((Math.atan2(y,x)*180/Math.PI)+360)%360;}
 
-// ═══════════════ OSM OFFLINE CACHE ═══════════════════════════════════════════
+// ═══ OSM OFFLINE CACHE ═══════════════════════════════════════════════════════
 const OSM_CACHE_NAME='pam-osm-tiles-v1';
 async function cacheOsmArea(){
   if(!('caches' in window)){showToast('Cache non disponibile');return;}
-  const bounds=map1.getBounds();
-  const baseZoom=Math.round(map1.getZoom());
-  const zooms=[baseZoom-1,baseZoom,baseZoom+1].map(z=>Math.max(1,Math.min(17,z)));
-  let allTiles=[];zooms.forEach(z=>{allTiles=allTiles.concat(getTilesInBounds(bounds,z));});
-  const limited=allTiles.slice(0,1000);
+  const bounds=map1.getBounds(),bz=Math.round(map1.getZoom());
+  const zooms=[bz-1,bz,bz+1].map(z=>Math.max(1,Math.min(17,z)));
+  let tiles=[];zooms.forEach(z=>tiles=tiles.concat(getTilesInBounds(bounds,z)));
+  tiles=tiles.slice(0,1000);
   document.getElementById('cache-progress').style.display='';
-  document.getElementById('cache-status').textContent=`Scarico ${limited.length} tile OSM…`;
-  const cache=await caches.open(OSM_CACHE_NAME);
-  let done=0,failed=0;
-  for(let i=0;i<limited.length;i+=6){
-    const batch=limited.slice(i,i+6);
+  document.getElementById('cache-status').textContent=`Scarico ${tiles.length} tile…`;
+  const cache=await caches.open(OSM_CACHE_NAME);let done=0,failed=0;
+  for(let i=0;i<tiles.length;i+=6){
+    const batch=tiles.slice(i,i+6);
     await Promise.all(batch.map(async({x,y,z})=>{
       const url=`https://tile.openstreetmap.org/${z}/${x}/${y}.png`;
-      try{const res=await fetch(url,{mode:'cors'});if(res.ok)await cache.put(url,res);else failed++;}catch(e){failed++;}done++;
+      try{const r=await fetch(url,{mode:'cors'});if(r.ok)await cache.put(url,r);else failed++;}catch(e){failed++;}done++;
     }));
-    document.getElementById('cache-progress').value=Math.round(done/limited.length*100);
-    document.getElementById('cache-status').textContent=`${done}/${limited.length} tile OSM (${Math.round(done/limited.length*100)}%)…`;
+    document.getElementById('cache-progress').value=Math.round(done/tiles.length*100);
   }
   document.getElementById('cache-progress').style.display='none';
   document.getElementById('cache-status').textContent=`✓ ${done-failed} tile OSM salvate`;
   showToast(`✓ ${done-failed} tile offline pronte`);
 }
-async function clearOsmCache(){
-  if(!confirm('Cancellare tutte le tile OSM salvate?'))return;
-  await caches.delete(OSM_CACHE_NAME);
-  document.getElementById('cache-status').textContent='Nessuna area salvata';
-  showToast('Cache OSM cancellata');
-}
-function getTilesInBounds(bounds,zoom){
-  const tiles=[];const nw=bounds.getNorthWest(),se=bounds.getSouthEast();
-  const[x0,y0]=lngLatToTile(nw.lng,nw.lat,zoom);const[x1,y1]=lngLatToTile(se.lng,se.lat,zoom);
-  for(let x=x0;x<=x1;x++)for(let y=y0;y<=y1;y++)tiles.push({x,y,z:zoom});
-  return tiles;
-}
-function lngLatToTile(lng,lat,zoom){
-  const n=Math.pow(2,zoom);const x=Math.floor((lng+180)/360*n);
-  const latR=lat*Math.PI/180;const y=Math.floor((1-Math.log(Math.tan(latR)+1/Math.cos(latR))/Math.PI)/2*n);
-  return[Math.max(0,x),Math.max(0,y)];
-}
+async function clearOsmCache(){if(!confirm('Cancellare le tile OSM?'))return;await caches.delete(OSM_CACHE_NAME);document.getElementById('cache-status').textContent='Nessuna area salvata';showToast('Cache OSM cancellata');}
+function getTilesInBounds(b,z){const tiles=[];const nw=b.getNorthWest(),se=b.getSouthEast();const[x0,y0]=llt(nw.lng,nw.lat,z);const[x1,y1]=llt(se.lng,se.lat,z);for(let x=x0;x<=x1;x++)for(let y=y0;y<=y1;y++)tiles.push({x,y,z});return tiles;}
+function llt(lng,lat,z){const n=2**z,x=Math.floor((lng+180)/360*n),lr=lat*Math.PI/180,y=Math.floor((1-Math.log(Math.tan(lr)+1/Math.cos(lr))/Math.PI)/2*n);return[Math.max(0,x),Math.max(0,y)];}
 
-// ═══════════════ UTILS ════════════════════════════════════════════════════════
-function haversDist(lat1,lon1,lat2,lon2){
-  const R=6371000,r=Math.PI/180,dLat=(lat2-lat1)*r,dLon=(lon2-lon1)*r;
-  const a=Math.sin(dLat/2)**2+Math.cos(lat1*r)*Math.cos(lat2*r)*Math.sin(dLon/2)**2;
-  return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
-}
-function calcLen(pts){let d=0;for(let i=1;i<pts.length;i++)d+=haversDist(pts[i-1].lat,pts[i-1].lon,pts[i].lat,pts[i].lon);return d;}
-function fmtDist(m){return m>=1000?(m/1000).toFixed(2)+' km':Math.round(m)+' m';}
-function escH(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
-function escAttr(s){return escH(s).replace(/"/g,'&quot;');}
-function dlBlob(content,name,type){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([content],{type}));a.download=name;a.click();}
-let toastTimer;
-function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>t.classList.remove('show'),2000);}
-
+// ═══ INIT ════════════════════════════════════════════════════════════════════
 document.addEventListener('click',e=>{
   ['poi-sdrop','draw-sdrop'].forEach(id=>{const el=document.getElementById(id);if(el&&el.style.display!=='none'&&!el.parentElement?.contains(e.target))el.style.display='none';});
 });
-
-// ═══════════════ INIT ════════════════════════════════════════════════════════
 if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{});
-render();
-drawUpdateStatus();
-
+render();drawUpdateStatus();
 function handleUrlParams(){
-  const p=new URLSearchParams(window.location.search);
-  const lat=parseFloat(p.get('lat')),lon=parseFloat(p.get('lon'));
-  const ele=p.get('ele')?parseFloat(p.get('ele')):null;
-  const name=p.get('name')||p.get('n')||null;
-  const src=p.get('src')||'';
+  const p=new URLSearchParams(window.location.search);const lat=parseFloat(p.get('lat')),lon=parseFloat(p.get('lon'));
   if(isNaN(lat)||isNaN(lon))return;
-  const ts=new Date();const pad=n=>String(n).padStart(2,'0');
-  const dateStr=`${ts.getFullYear()}${pad(ts.getMonth()+1)}${pad(ts.getDate())}_${pad(ts.getHours())}${pad(ts.getMinutes())}`;
-  const wpName=name?decodeURIComponent(name):(src==='garmin'?`Garmin_${dateStr}`:`WP_${dateStr}`);
-  waypoints.push({name:wpName,lat,lon,ele,sel:true});
-  map1.setView([lat,lon],14);render();
-  window.history.replaceState({},'',window.location.pathname);
-  showToast(`📍 ${wpName} aggiunto ✓`);
+  const ele=p.get('ele')?parseFloat(p.get('ele')):null,name=p.get('name')||p.get('n')||null,src=p.get('src')||'';
+  const ts=new Date(),pad=n=>String(n).padStart(2,'0');
+  const ds=`${ts.getFullYear()}${pad(ts.getMonth()+1)}${pad(ts.getDate())}_${pad(ts.getHours())}${pad(ts.getMinutes())}`;
+  const wn=name?decodeURIComponent(name):(src==='garmin'?`Garmin_${ds}`:`WP_${ds}`);
+  waypoints.push({name:wn,lat,lon,ele,sel:true});map1.setView([lat,lon],14);render();
+  window.history.replaceState({},'',window.location.pathname);showToast(`📍 ${wn} aggiunto ✓`);
 }
 handleUrlParams();
+// OSM compat stubs
+function toggleOsmLayer(){}
+function navPickMode(){}
+function navSearchGo(){}
+function stopNavPick(){}
 </script>
 </body>
 </html>
