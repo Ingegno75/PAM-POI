@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+
 <html lang="it">
 <head>
 <meta charset="utf-8">
@@ -209,6 +210,13 @@ canvas#elev-canvas{width:100%;height:200px;display:block;border-radius:var(--r);
 .mb-dot{width:14px;height:14px;border-radius:50%;border:2px solid #fff;cursor:pointer;
   box-shadow:0 0 6px rgba(0,0,0,.5);}
 
+
+/* FOOTER */
+.app-footer{
+  text-align:center;padding:4px 10px;font-family:'IBM Plex Mono',monospace;
+  font-size:10px;color:var(--text-dim);background:var(--surface);
+  border-top:1px solid var(--border);flex-shrink:0;letter-spacing:.04em;
+}
 /* TOAST */
 .toast{position:fixed;top:50%;left:50%;
   transform:translate(-50%,-50%) scale(.85);opacity:0;
@@ -218,10 +226,12 @@ canvas#elev-canvas{width:100%;height:200px;display:block;border-radius:var(--r);
   white-space:nowrap;box-shadow:0 8px 32px rgba(0,0,0,.6);}
 .toast.show{transform:translate(-50%,-50%) scale(1);opacity:1;}
 </style>
+
 </head>
 <body>
 
 <!-- NAV -->
+
 <nav>
   <button class="nav-btn active" id="nb-poi" onclick="showScreen('poi')"><span class="ni">📍</span>Waypoint</button>
   <button class="nav-btn" id="nb-trk" onclick="showScreen('trk')"><span class="ni">〰</span>Traccia</button>
@@ -229,9 +239,9 @@ canvas#elev-canvas{width:100%;height:200px;display:block;border-radius:var(--r);
 </nav>
 
 <!-- ══ SCREEN: WAYPOINT ══ -->
+
 <div class="screen active" id="scr-poi">
   <div class="topbar">
-    <div class="logo">PAM</div>
     <div style="position:relative;flex:1;min-width:150px;display:flex;gap:5px;">
       <div style="position:relative;flex:1;min-width:0;">
         <input id="poi-search" class="picker-input" placeholder="Cerca indirizzo…" autocomplete="off"
@@ -277,97 +287,99 @@ canvas#elev-canvas{width:100%;height:200px;display:block;border-radius:var(--r);
       </table>
     </div>
   </div>
+  <div class="app-footer">PAM — Poi&amp;Track App Mgr</div>
 </div>
 
 <!-- ══ SCREEN: TRACCE ══ -->
+
 <!-- trk-map kept hidden (map2 still initialised to avoid JS errors) -->
+
 <div style="display:none;"><div id="trk-map"></div></div>
 
 <!-- ══ SCREEN: TRACCIA (disegno + importazione) ══ -->
+
 <div class="screen" id="scr-trk">
   <div class="route-layout">
 
-    <!-- top info bar: traccia in disegno -->
-    <div style="display:flex;align-items:center;gap:8px;padding:6px 10px;
-      background:var(--surface2);border-bottom:1px solid var(--border);flex-shrink:0;flex-wrap:wrap;">
-      <input id="draw-name" value="Nuova traccia"
-        style="background:var(--bg);border:1px solid var(--border);border-radius:var(--r);
-          color:var(--text);font-family:'Outfit',sans-serif;font-size:13px;font-weight:600;
-          padding:5px 9px;outline:none;min-width:100px;flex:1;max-width:200px;"
-        onfocus="this.style.borderColor='var(--accent)'"
-        onblur="this.style.borderColor='var(--border)'">
-      <span class="draw-stat" id="di-pts">— pt</span>
-      <span class="draw-stat" id="di-len">—</span>
-      <span class="draw-stat" id="di-dp" style="color:var(--accent2)">D+ —</span>
-      <span class="draw-stat" id="di-dm" style="color:var(--warn)">D− —</span>
-      <button class="btn btn-dim btn-sm" id="btn-draw-elev" onclick="openDrawElev()" style="display:none;" title="Profilo altimetrico traccia corrente">📈</button>
+```
+<!-- riga 1: cerca punto di partenza -->
+<div class="route-config" style="padding:6px 10px;">
+  <div class="route-row" style="gap:5px;">
+    <div style="position:relative;flex:1;min-width:140px;">
+      <input class="picker-input" id="draw-search" placeholder="🔍 Cerca punto di partenza…"
+        autocomplete="off"
+        oninput="liveSearch('draw-search','draw-sdrop',null)"
+        onkeydown="if(event.key==='Enter'){drawSearchGo();closeDrop('draw-sdrop')}">
+      <div class="sdrop" id="draw-sdrop"></div>
     </div>
-
-    <!-- toolbar: disegno + importa -->
-    <div class="route-config">
-      <div class="route-row" style="flex-wrap:wrap;gap:5px;">
-        <div style="position:relative;flex:1;min-width:140px;">
-          <input class="picker-input" id="draw-search" placeholder="🔍 Cerca punto di partenza…"
-            autocomplete="off"
-            oninput="liveSearch('draw-search','draw-sdrop',null)"
-            onkeydown="if(event.key==='Enter'){drawSearchGo();closeDrop('draw-sdrop')}">
-          <div class="sdrop" id="draw-sdrop"></div>
-        </div>
-        <button class="btn btn-dim btn-sm" onclick="drawUseGPS()">📍 GPS</button>
-        <div class="mode-toggle">
-          <button class="mode-btn walk active" id="seg-walk" onclick="setSegMode('foot')">🏃 Sentiero</button>
-          <button class="mode-btn drive" id="seg-drive" onclick="setSegMode('driving')">🚗 Strada</button>
-          <button class="mode-btn" id="seg-line" onclick="setSegMode('line')">📏 Linea</button>
-        </div>
-        <div class="tile-toggle">
-          <button class="tile-btn active" data-tile="outdoors" onclick="setStyle('outdoors')" title="Outdoor">🥾</button>
-          <button class="tile-btn" data-tile="streets" onclick="setStyle('streets')" title="Stradale">🚗</button>
-        </div>
-        <button class="btn btn-dim btn-sm" onclick="drawUndo()">↩ Undo</button>
-        <button class="btn btn-red btn-sm" onclick="drawClear()">🗑 Reset</button>
-        <button class="btn btn-green btn-sm" onclick="drawExport()">⬇ Esporta</button>
-        <label class="btn btn-dim btn-sm" for="trk-file-input" style="margin-left:4px;">📂 Importa GPX</label>
-        <input type="file" id="trk-file-input" accept=".gpx" style="display:none">
-      </div>
+    <button class="btn btn-dim btn-sm" onclick="drawUseGPS()">📍 GPS</button>
+    <div class="tile-toggle">
+      <button class="tile-btn active" data-tile="outdoors" onclick="setStyle('outdoors')" title="Outdoor">🥾</button>
+      <button class="tile-btn" data-tile="streets" onclick="setStyle('streets')" title="Stradale">🚗</button>
     </div>
-
-    <!-- mappa: route-map (map3) — già funzionante per il disegno -->
-    <div class="route-map-wrap" style="cursor:crosshair;">
-      <div id="route-map"></div>
-      <div class="map-hint" id="route-map-hint" style="display:none;"></div>
-    </div>
-
-    <!-- tracce importate: lista sotto la mappa -->
-    <div id="trk-imported-panel" style="flex-shrink:0;max-height:28dvh;overflow-y:auto;
-      background:var(--surface);border-top:1px solid var(--border);display:none;">
-      <div style="display:flex;align-items:center;padding:5px 10px;border-bottom:1px solid var(--border);gap:6px;">
-        <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text-dim);
-          letter-spacing:.06em;flex:1;">TRACCE IMPORTATE</span>
-        <button class="btn btn-red btn-sm" onclick="clearTracks()">🗑 Rimuovi tutte</button>
-      </div>
-      <table style="width:100%;border-collapse:collapse;font-size:12px;">
-        <thead><tr style="background:var(--surface2);">
-          <th style="padding:4px 8px;text-align:left;font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text-dim);">NOME</th>
-          <th style="padding:4px 8px;width:72px;font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text-dim);">LUNG.</th>
-          <th style="padding:4px 8px;width:64px;font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--accent2);">D+</th>
-          <th style="padding:4px 8px;width:30px;"></th>
-          <th style="padding:4px 8px;width:22px;"></th>
-        </tr></thead>
-        <tbody id="trk-body"></tbody>
-      </table>
-    </div>
-
   </div>
 </div>
 
+<!-- riga 2: nome traccia + stats + azioni -->
+<div style="display:flex;align-items:center;gap:6px;padding:6px 10px;
+  background:var(--surface2);border-bottom:1px solid var(--border);flex-shrink:0;flex-wrap:wrap;">
+  <input id="draw-name" value="Nuova traccia"
+    style="background:var(--bg);border:1px solid var(--border);border-radius:var(--r);
+      color:var(--text);font-family:'Outfit',sans-serif;font-size:13px;font-weight:600;
+      padding:5px 9px;outline:none;min-width:90px;flex:1;max-width:180px;"
+    onfocus="this.style.borderColor='var(--accent)'"
+    onblur="this.style.borderColor='var(--border)'">
+  <span class="draw-stat" id="di-pts">— pt</span>
+  <span class="draw-stat" id="di-len">—</span>
+  <span class="draw-stat" id="di-dp" style="color:var(--accent2)">D+ —</span>
+  <span class="draw-stat" id="di-dm" style="color:var(--warn)">D− —</span>
+  <button class="btn btn-dim btn-sm" onclick="drawUndo()">↩</button>
+  <button class="btn btn-red btn-sm" onclick="drawClear()">🗑</button>
+  <button class="btn btn-dim btn-sm" id="btn-draw-elev" onclick="openDrawElev()" style="display:none;" title="Profilo altimetrico">📈</button>
+  <button class="btn btn-green btn-sm" onclick="drawExport()">⬇</button>
+  <label class="btn btn-dim btn-sm" for="trk-file-input">📂</label>
+  <input type="file" id="trk-file-input" accept=".gpx" style="display:none">
+</div>
+
+<!-- mappa: route-map (map3) — già funzionante per il disegno -->
+<div class="route-map-wrap" style="cursor:crosshair;">
+  <div id="route-map"></div>
+  <div class="map-hint" id="route-map-hint" style="display:none;"></div>
+</div>
+
+<!-- tracce importate: lista sotto la mappa -->
+<div id="trk-imported-panel" style="flex-shrink:0;max-height:28dvh;overflow-y:auto;
+  background:var(--surface);border-top:1px solid var(--border);display:none;">
+  <div style="display:flex;align-items:center;padding:5px 10px;border-bottom:1px solid var(--border);gap:6px;">
+    <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text-dim);
+      letter-spacing:.06em;flex:1;">TRACCE IMPORTATE</span>
+    <button class="btn btn-red btn-sm" onclick="clearTracks()">🗑 Rimuovi tutte</button>
+  </div>
+  <table style="width:100%;border-collapse:collapse;font-size:12px;">
+    <thead><tr style="background:var(--surface2);">
+      <th style="padding:4px 8px;text-align:left;font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text-dim);">NOME</th>
+      <th style="padding:4px 8px;width:72px;font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text-dim);">LUNG.</th>
+      <th style="padding:4px 8px;width:64px;font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--accent2);">D+</th>
+      <th style="padding:4px 8px;width:30px;"></th>
+      <th style="padding:4px 8px;width:22px;"></th>
+    </tr></thead>
+    <tbody id="trk-body"></tbody>
+  </table>
+</div>
+```
+
+  </div>
+  <div class="app-footer">PAM — Poi&amp;Track App Mgr</div>
+</div>
+
 <!-- scr-route: alias to trk, kept for JS compatibility -->
+
 <div class="screen" id="scr-route" style="display:none!important;pointer-events:none;"></div>
 
-
 <!-- ══ SCREEN: NAVIGA ══ -->
+
 <div class="screen" id="scr-nav">
   <div class="topbar">
-    <div class="logo">PAM · Naviga</div>
     <div class="tile-toggle">
       <button class="tile-btn active" data-tile="outdoors" onclick="setStyle('outdoors')" title="Outdoor">🥾</button>
       <button class="tile-btn" data-tile="streets" onclick="setStyle('streets')" title="Stradale">🚗</button>
@@ -380,54 +392,59 @@ canvas#elev-canvas{width:100%;height:200px;display:block;border-radius:var(--r);
     <!-- mappa: waypoint selezionati come marker rossi — tocca per navigare -->
     <div class="nav-map-wrap"><div id="nav-map"></div></div>
 
-    <!-- pannello: freccia + stats -->
-    <div class="nav-panel">
-      <div style="display:flex;align-items:center;padding:10px 12px 6px;gap:16px;">
-        <!-- freccia bussola -->
-        <svg id="nav-arrow-svg" viewBox="0 0 96 96" fill="none" xmlns="http://www.w3.org/2000/svg"
-          style="width:80px;height:80px;flex-shrink:0;transition:transform .15s ease-out;">
-          <circle cx="48" cy="48" r="46" fill="#21262d" stroke="#30363d" stroke-width="2"/>
-          <text x="48" y="18" text-anchor="middle" fill="#8b949e" font-size="10" font-family="IBM Plex Mono,monospace">N</text>
-          <polygon points="48,22 57,68 48,60 39,68" fill="#58a6ff"/>
-          <polygon points="48,74 57,28 48,36 39,28" fill="#30363d"/>
-          <circle cx="48" cy="48" r="4" fill="#58a6ff"/>
-        </svg>
-        <div style="flex:1;min-width:0;">
-          <div id="nav-dest-name" style="font-size:13px;font-weight:600;color:var(--text);
-            white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:4px;">
-            Tocca un waypoint sulla mappa
-          </div>
-          <div id="nav-dir-label" style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--text-dim);">—</div>
-        </div>
+```
+<!-- pannello: freccia + stats -->
+<div class="nav-panel">
+  <div style="display:flex;align-items:center;padding:10px 12px 6px;gap:16px;">
+    <!-- freccia bussola -->
+    <svg id="nav-arrow-svg" viewBox="0 0 96 96" fill="none" xmlns="http://www.w3.org/2000/svg"
+      style="width:80px;height:80px;flex-shrink:0;transition:transform .15s ease-out;">
+      <circle cx="48" cy="48" r="46" fill="#21262d" stroke="#30363d" stroke-width="2"/>
+      <text x="48" y="18" text-anchor="middle" fill="#8b949e" font-size="10" font-family="IBM Plex Mono,monospace">N</text>
+      <polygon points="48,22 57,68 48,60 39,68" fill="#58a6ff"/>
+      <polygon points="48,74 57,28 48,36 39,28" fill="#30363d"/>
+      <circle cx="48" cy="48" r="4" fill="#58a6ff"/>
+    </svg>
+    <div style="flex:1;min-width:0;">
+      <div id="nav-dest-name" style="font-size:13px;font-weight:600;color:var(--text);
+        white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:4px;">
+        Tocca un waypoint sulla mappa
       </div>
-      <!-- 4 stat boxes -->
-      <div class="nav-stats" style="grid-template-columns:1fr 1fr 1fr 1fr;">
-        <div class="nav-stat">
-          <div class="nav-stat-label">DISTANZA</div>
-          <div class="nav-stat-val" id="nav-dist">—</div>
-          <div class="nav-stat-unit" id="nav-dist-unit">m</div>
-        </div>
-        <div class="nav-stat">
-          <div class="nav-stat-label">DISLIVELLO</div>
-          <div class="nav-stat-val" id="nav-dalt">—</div>
-          <div class="nav-stat-unit">m</div>
-        </div>
-        <div class="nav-stat">
-          <div class="nav-stat-label">QUOTA TU</div>
-          <div class="nav-stat-val" id="nav-alt-you">—</div>
-          <div class="nav-stat-unit">m</div>
-        </div>
-        <div class="nav-stat">
-          <div class="nav-stat-label">QUOTA DEST</div>
-          <div class="nav-stat-val" id="nav-alt-dest">—</div>
-          <div class="nav-stat-unit">m</div>
-        </div>
-      </div>
+      <div id="nav-dir-label" style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--text-dim);">—</div>
+    </div>
+  </div>
+  <!-- 4 stat boxes -->
+  <div class="nav-stats" style="grid-template-columns:1fr 1fr 1fr 1fr;">
+    <div class="nav-stat">
+      <div class="nav-stat-label">DISTANZA</div>
+      <div class="nav-stat-val" id="nav-dist">—</div>
+      <div class="nav-stat-unit" id="nav-dist-unit">m</div>
+    </div>
+    <div class="nav-stat">
+      <div class="nav-stat-label">DISLIVELLO</div>
+      <div class="nav-stat-val" id="nav-dalt">—</div>
+      <div class="nav-stat-unit">m</div>
+    </div>
+    <div class="nav-stat">
+      <div class="nav-stat-label">QUOTA TU</div>
+      <div class="nav-stat-val" id="nav-alt-you">—</div>
+      <div class="nav-stat-unit">m</div>
+    </div>
+    <div class="nav-stat">
+      <div class="nav-stat-label">QUOTA DEST</div>
+      <div class="nav-stat-val" id="nav-alt-dest">—</div>
+      <div class="nav-stat-unit">m</div>
     </div>
   </div>
 </div>
+```
+
+  </div>
+  <div class="app-footer">PAM — Poi&amp;Track App Mgr</div>
+</div>
 
 <!-- ELEVATION MODAL -->
+
 <div id="elev-modal">
   <div class="modal-box">
     <div class="modal-header">
@@ -985,5 +1002,6 @@ function navPickMode(){}
 function navSearchGo(){}
 function stopNavPick(){}
 </script>
+
 </body>
 </html>
