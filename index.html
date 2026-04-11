@@ -203,6 +203,13 @@ canvas#elev-canvas{width:100%;height:200px;display:block;border-radius:var(--r);
 #cache-progress{flex:1;height:4px;border-radius:2px;accent-color:var(--accent2);min-width:60px;}
 
 /* OSM offline layer indicator */
+/* Offline download bar — shared */
+.dl-bar{display:flex;align-items:center;gap:5px;padding:4px 10px;
+  background:var(--surface2);border-bottom:1px solid var(--border);flex-shrink:0;flex-wrap:wrap;}
+.dl-bar-info{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text-dim);flex:1;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.dl-bar progress{height:4px;border-radius:2px;accent-color:var(--accent2);
+  flex:1;min-width:60px;display:none;}
 .osm-active .tile-btn[id="btn-osm-layer"]{
   border-color:var(--accent2);background:rgba(63,185,80,.15);color:var(--accent2);}
 
@@ -259,6 +266,12 @@ canvas#elev-canvas{width:100%;height:200px;display:block;border-radius:var(--r);
       <button class="tile-btn" data-tile="streets" onclick="setStyle('streets')" title="Stradale">🚗</button>
     </div>
   </div>
+  <div class="dl-bar" id="dlbar-poi">
+    <progress id="dl-prog-poi" value="0" max="100"></progress>
+    <span class="dl-bar-info" id="dl-status-poi">Area mappa non salvata</span>
+    <button class="btn btn-dim btn-sm" onclick="cacheMap('poi')" title="Salva area visibile per uso offline">💾</button>
+    <button class="btn btn-red btn-sm" style="padding:4px 6px;" onclick="clearMapCache('poi')" title="Cancella cache">🗑</button>
+  </div>
   <div class="map-wrap"><div id="map"></div>
   </div>
   <div class="bottom-panel">
@@ -313,35 +326,44 @@ canvas#elev-canvas{width:100%;height:200px;display:block;border-radius:var(--r);
       <div class="sdrop" id="draw-sdrop"></div>
     </div>
     <button class="btn btn-dim btn-sm" onclick="drawUseGPS()">📍 GPS</button>
+    <button class="btn btn-sm" id="btn-draw-pick" onclick="toggleDrawPick()" title="Scegli punto di partenza sulla mappa">🖱 Mappa</button>
     <div class="tile-toggle">
       <button class="tile-btn active" data-tile="outdoors" onclick="setStyle('outdoors')" title="Outdoor">🥾</button>
       <button class="tile-btn" data-tile="streets" onclick="setStyle('streets')" title="Stradale">🚗</button>
     </div>
   </div>
 </div>
+```
 
-<!-- riga 2: nome traccia + stats + azioni -->
-<div style="display:flex;align-items:center;gap:6px;padding:6px 10px;
-  background:var(--surface2);border-bottom:1px solid var(--border);flex-shrink:0;flex-wrap:wrap;">
-  <input id="draw-name" value="Nuova traccia"
-    style="background:var(--bg);border:1px solid var(--border);border-radius:var(--r);
-      color:var(--text);font-family:'Outfit',sans-serif;font-size:13px;font-weight:600;
-      padding:5px 9px;outline:none;min-width:90px;flex:1;max-width:180px;"
-    onfocus="this.style.borderColor='var(--accent)'"
-    onblur="this.style.borderColor='var(--border)'">
-  <span class="draw-stat" id="di-pts">— pt</span>
-  <span class="draw-stat" id="di-len">—</span>
-  <span class="draw-stat" id="di-dp" style="color:var(--accent2)">D+ —</span>
-  <span class="draw-stat" id="di-dm" style="color:var(--warn)">D− —</span>
-  <button class="btn btn-dim btn-sm" onclick="drawUndo()">↩</button>
-  <button class="btn btn-red btn-sm" onclick="drawClear()">🗑</button>
-  <button class="btn btn-dim btn-sm" id="btn-draw-elev" onclick="openDrawElev()" style="display:none;" title="Profilo altimetrico">📈</button>
-  <button class="btn btn-dim btn-sm" id="btn-seg-line" onclick="toggleLineMode()" title="Alterna: segui percorso / linea retta">📏 Linea</button>
-  <button class="btn btn-green btn-sm" onclick="drawExport()">⬇</button>
-  <label class="btn btn-dim btn-sm" for="trk-file-input">📂</label>
-  <input type="file" id="trk-file-input" accept=".gpx" style="display:none">
-</div>
+  <div class="dl-bar" id="dlbar-trk">
+    <progress id="dl-prog-trk" value="0" max="100"></progress>
+    <span class="dl-bar-info" id="dl-status-trk">Area mappa non salvata</span>
+    <button class="btn btn-dim btn-sm" onclick="cacheMap('trk')" title="Salva area visibile per uso offline">💾</button>
+    <button class="btn btn-red btn-sm" style="padding:4px 6px;" onclick="clearMapCache('trk')" title="Cancella cache">🗑</button>
+  </div>
+    <!-- riga 2: nome traccia + stats + azioni -->
+    <div style="display:flex;align-items:center;gap:6px;padding:6px 10px;
+      background:var(--surface2);border-bottom:1px solid var(--border);flex-shrink:0;flex-wrap:wrap;">
+      <input id="draw-name" value="Nuova traccia"
+        style="background:var(--bg);border:1px solid var(--border);border-radius:var(--r);
+          color:var(--text);font-family:'Outfit',sans-serif;font-size:13px;font-weight:600;
+          padding:5px 9px;outline:none;min-width:90px;flex:1;max-width:180px;"
+        onfocus="this.style.borderColor='var(--accent)'"
+        onblur="this.style.borderColor='var(--border)'">
+      <span class="draw-stat" id="di-pts">— pt</span>
+      <span class="draw-stat" id="di-len">—</span>
+      <span class="draw-stat" id="di-dp" style="color:var(--accent2)">D+ —</span>
+      <span class="draw-stat" id="di-dm" style="color:var(--warn)">D− —</span>
+      <button class="btn btn-dim btn-sm" onclick="drawUndo()">↩</button>
+      <button class="btn btn-red btn-sm" onclick="drawClear()">🗑</button>
+      <button class="btn btn-dim btn-sm" id="btn-draw-elev" onclick="openDrawElev()" style="display:none;" title="Profilo altimetrico">📈</button>
+      <button class="btn btn-dim btn-sm" id="btn-seg-line" onclick="toggleLineMode()" title="Alterna: segui percorso / linea retta">📏 Linea</button>
+      <button class="btn btn-green btn-sm" onclick="drawExport()">⬇</button>
+      <label class="btn btn-dim btn-sm" for="trk-file-input">📂</label>
+      <input type="file" id="trk-file-input" accept=".gpx" style="display:none">
+    </div>
 
+```
 <!-- mappa: route-map (map3) — già funzionante per il disegno -->
 <div class="route-map-wrap" style="cursor:crosshair;">
   <div id="route-map"></div>
@@ -387,6 +409,12 @@ canvas#elev-canvas{width:100%;height:200px;display:block;border-radius:var(--r);
     </div>
     <button class="btn btn-amber btn-sm" onclick="requestCompassPermission()" id="btn-compass-req">🧭 Bussola</button>
     <button class="btn btn-red btn-sm" onclick="navClear()" id="btn-nav-stop" style="display:none;">⏹ Stop</button>
+  </div>
+  <div class="dl-bar" id="dlbar-nav">
+    <progress id="dl-prog-nav" value="0" max="100"></progress>
+    <span class="dl-bar-info" id="dl-status-nav">Area mappa non salvata</span>
+    <button class="btn btn-dim btn-sm" onclick="cacheMap('nav')" title="Salva area visibile per uso offline">💾</button>
+    <button class="btn btn-red btn-sm" style="padding:4px 6px;" onclick="clearMapCache('nav')" title="Cancella cache">🗑</button>
   </div>
 
   <div class="nav-screen-layout">
@@ -744,7 +772,23 @@ function drawRenderWpMarkers(){
     drawWpMarkers.push(m);
   });
 }
-map3.on('click',e=>{if(drawPending)return;drawAddNode(e.latlng.lat,e.latlng.lng);});
+map3.on('click',e=>{
+  if(drawPending)return;
+  if(drawPickMode){
+    // Pick mode: set as start point, clear existing, disable pick mode
+    drawPickMode=false;
+    const btn=document.getElementById('btn-draw-pick');
+    if(btn) btn.classList.remove('btn-active-map');
+    // Only set start if no nodes yet, or replace start
+    if(drawNodes.length===0){
+      drawAddNode(e.latlng.lat,e.latlng.lng);
+    } else {
+      showToast('Traccia già iniziata — usa Reset per ricominciare');
+    }
+    return;
+  }
+  drawAddNode(e.latlng.lat,e.latlng.lng);
+});
 
 function setSegMode(m){
   drawSegMode=m;
@@ -762,6 +806,19 @@ function setSegMode(m){
 function toggleLineMode(){
   setSegMode(drawSegMode==='line' ? 'foot' : 'line');
 }
+let drawPickMode=false;
+function toggleDrawPick(){
+  drawPickMode=!drawPickMode;
+  const btn=document.getElementById('btn-draw-pick');
+  if(drawPickMode){
+    btn.classList.add('btn-active-map');
+    map3.getContainer().style.cursor='crosshair';
+    showToast('Tocca la mappa per scegliere la partenza');
+  } else {
+    btn.classList.remove('btn-active-map');
+    map3.getContainer().style.cursor='crosshair'; // keep crosshair (draw mode)
+  }
+}
 function drawSearchGo(){
   const q=document.getElementById('draw-search').value.trim();if(!q)return;
   fetch('https://nominatim.openstreetmap.org/search?format=json&limit=1&q='+encodeURIComponent(q),{headers:{'Accept-Language':'it'}})
@@ -775,17 +832,45 @@ function drawAddStart(lat,lon){drawAddNode(lat,lon);if(drawNodes.length===1)map3
 
 async function drawAddNode(lat,lon){
   if(drawPending)return;
-  const ele=await fetchEleVal(lat,lon);
-  const node={lat,lon,ele};drawNodes.push(node);const idx=drawNodes.length-1;
-  const m=L.marker([lat,lon],{icon:makeDot(idx===0?'#3fb950':'#e03030',idx===0?18:13)}).addTo(map3)
-    .bindPopup(`<b>${idx===0?'▶ Partenza':'Punto '+idx}</b><br>${lat.toFixed(5)}, ${lon.toFixed(5)}${ele!=null?'<br>'+Math.round(ele)+' m':''}`);
+  // ── Immediate feedback: place marker NOW, fetch elevation in background ──
+  const idx=drawNodes.length;
+  const node={lat,lon,ele:null};
+  drawNodes.push(node);
+  const m=L.marker([lat,lon],{icon:makeDot(idx===0?'#3fb950':'#e03030',idx===0?18:13)}).addTo(map3);
   drawNodeMarkers.push(m);
-  if(idx===0){drawSegments.push([]);drawUpdateStatus();return;}
-  drawPending=true;const prev=drawNodes[idx-1];
-  let seg;if(drawSegMode==='line')seg=lineSeg(prev,node);
-  else{seg=await routeSeg(prev,node,drawSegMode)||lineSeg(prev,node);}
-  seg=await enrichElevation(seg);drawSegments.push(seg);drawPending=false;
-  redrawRoute();drawUpdateStatus();
+
+  if(idx===0){
+    drawSegments.push([]);
+    drawUpdateStatus();
+    // fetch elevation for start node in background (non-blocking)
+    fetchEleVal(lat,lon).then(ele=>{node.ele=ele;}).catch(()=>{});
+    return;
+  }
+
+  drawPending=true;
+  const prev=drawNodes[idx-1];
+
+  // Draw a straight preview line instantly so user sees something immediately
+  const preview=lineSeg(prev,node);
+  drawSegments.push(preview);
+  redrawRoute();
+
+  // Then fetch real route + elevations in background
+  let seg;
+  if(drawSegMode==='line'){
+    seg=preview;
+  } else {
+    seg=await routeSeg(prev,node,drawSegMode)||preview;
+  }
+  seg=await enrichElevation(seg);
+
+  // Update the segment with final data
+  drawSegments[idx]=seg;
+  node.ele=seg[seg.length-1]?.ele??null;
+
+  drawPending=false;
+  redrawRoute();
+  drawUpdateStatus();
 }
 function redrawRoute(){
   if(drawPolyline){map3.removeLayer(drawPolyline);drawPolyline=null;}
@@ -965,28 +1050,48 @@ function calcBearing(a,b,c,d){const r=Math.PI/180,dl=(d-b)*r,y=Math.sin(dl)*Math
 
 // ═══ OSM OFFLINE CACHE ═══════════════════════════════════════════════════════
 const OSM_CACHE_NAME='pam-osm-tiles-v1';
-async function cacheOsmArea(){
+
+// mapForScreen: returns the Leaflet map object for a given screen id
+function mapForScreen(sid){return sid==='poi'?map1:sid==='trk'?map3:map4;}
+
+async function cacheMap(sid){
   if(!('caches' in window)){showToast('Cache non disponibile');return;}
-  const bounds=map1.getBounds(),bz=Math.round(map1.getZoom());
+  const m=mapForScreen(sid);
+  const bounds=m.getBounds(), bz=Math.round(m.getZoom());
   const zooms=[bz-1,bz,bz+1].map(z=>Math.max(1,Math.min(17,z)));
   let tiles=[];zooms.forEach(z=>tiles=tiles.concat(getTilesInBounds(bounds,z)));
   tiles=tiles.slice(0,1000);
-  document.getElementById('cache-progress').style.display='';
-  document.getElementById('cache-status').textContent=`Scarico ${tiles.length} tile…`;
-  const cache=await caches.open(OSM_CACHE_NAME);let done=0,failed=0;
+  const prog=document.getElementById('dl-prog-'+sid);
+  const stat=document.getElementById('dl-status-'+sid);
+  prog.style.display='';stat.textContent=`Scarico ${tiles.length} tile…`;
+  const cache=await caches.open(OSM_CACHE_NAME);
+  let done=0,failed=0;
   for(let i=0;i<tiles.length;i+=6){
     const batch=tiles.slice(i,i+6);
     await Promise.all(batch.map(async({x,y,z})=>{
       const url=`https://tile.openstreetmap.org/${z}/${x}/${y}.png`;
       try{const r=await fetch(url,{mode:'cors'});if(r.ok)await cache.put(url,r);else failed++;}catch(e){failed++;}done++;
     }));
-    document.getElementById('cache-progress').value=Math.round(done/tiles.length*100);
+    prog.value=Math.round(done/tiles.length*100);
+    if(done%30===0) stat.textContent=`${done}/${tiles.length} tile…`;
   }
-  document.getElementById('cache-progress').style.display='none';
-  document.getElementById('cache-status').textContent=`✓ ${done-failed} tile OSM salvate`;
-  showToast(`✓ ${done-failed} tile offline pronte`);
+  prog.style.display='none';
+  const ok=done-failed;
+  stat.textContent=`✓ ${ok} tile salvate`;
+  showToast(`✓ ${ok} tile offline pronte`);
 }
-async function clearOsmCache(){if(!confirm('Cancellare le tile OSM?'))return;await caches.delete(OSM_CACHE_NAME);document.getElementById('cache-status').textContent='Nessuna area salvata';showToast('Cache OSM cancellata');}
+async function clearMapCache(sid){
+  if(!confirm('Cancellare la cache mappa?'))return;
+  await caches.delete(OSM_CACHE_NAME);
+  ['poi','trk','nav'].forEach(s=>{
+    const el=document.getElementById('dl-status-'+s);
+    if(el) el.textContent='Area mappa non salvata';
+  });
+  showToast('Cache OSM cancellata');
+}
+// legacy alias
+function cacheOsmArea(){cacheMap('poi');}
+function clearOsmCache(){clearMapCache('poi');}
 function getTilesInBounds(b,z){const tiles=[];const nw=b.getNorthWest(),se=b.getSouthEast();const[x0,y0]=llt(nw.lng,nw.lat,z);const[x1,y1]=llt(se.lng,se.lat,z);for(let x=x0;x<=x1;x++)for(let y=y0;y<=y1;y++)tiles.push({x,y,z});return tiles;}
 function llt(lng,lat,z){const n=2**z,x=Math.floor((lng+180)/360*n),lr=lat*Math.PI/180,y=Math.floor((1-Math.log(Math.tan(lr)+1/Math.cos(lr))/Math.PI)/2*n);return[Math.max(0,x),Math.max(0,y)];}
 
