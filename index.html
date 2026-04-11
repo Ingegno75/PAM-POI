@@ -768,55 +768,47 @@ function drawRenderWpMarkers(){
   waypoints.filter(w=>w.sel).forEach(w=>{
     const m=L.marker([w.lat,w.lon],{icon:makeDot('#3b82f6',14)}).addTo(map3)
       .bindPopup(`<b style="color:#3b82f6">📌 ${escH(w.name)}</b><br><small>Tocca per aggiungere alla traccia</small>`);
-    m.on('click',e=>{L.DomEvent.stopPropagation(e);if(drawPending)return;drawAddNode(w.lat,w.lon);});
+    m.on('click',e=>{L.DomEvent.stopPropagation(e);if(drawMapMode==='on')drawAddNode(w.lat,w.lon);});
     drawWpMarkers.push(m);
   });
 }
-map3.on('click',e=>{
-  if(drawPending)return;
-  if(drawPickMode){
-    // Pick mode: set as start point, clear existing, disable pick mode
-    drawPickMode=false;
-    const btn=document.getElementById('btn-draw-pick');
-    if(btn) btn.classList.remove('btn-active-map');
-    // Only set start if no nodes yet, or replace start
-    if(drawNodes.length===0){
-      drawAddNode(e.latlng.lat,e.latlng.lng);
-    } else {
-      showToast('Traccia già iniziata — usa Reset per ricominciare');
-    }
-    return;
+// drawMapMode: 'off' | 'on'
+// 'off' = tap selects WP markers only (default)
+// 'on'  = tap adds draw nodes (stays active until toggled off)
+let drawMapMode = 'off';
+
+map3.on('click', e=>{
+  if(drawMapMode === 'on'){
+    drawAddNode(e.latlng.lat, e.latlng.lng);
   }
-  drawAddNode(e.latlng.lat,e.latlng.lng);
+  // if 'off', click on blank map does nothing (WP markers handle their own click)
 });
 
 function setSegMode(m){
   drawSegMode=m;
   const btn=document.getElementById('btn-seg-line');
   if(btn){
-    if(m==='line'){
-      btn.textContent='🛣 Percorso';
-      btn.classList.add('btn-active-map');
-    } else {
-      btn.textContent='📏 Linea';
-      btn.classList.remove('btn-active-map');
-    }
+    if(m==='line'){btn.textContent='🛣 Percorso';btn.classList.add('btn-active-map');}
+    else{btn.textContent='📏 Linea';btn.classList.remove('btn-active-map');}
   }
 }
 function toggleLineMode(){
   setSegMode(drawSegMode==='line' ? 'foot' : 'line');
 }
+// kept for compatibility
 let drawPickMode=false;
 function toggleDrawPick(){
-  drawPickMode=!drawPickMode;
+  drawMapMode = drawMapMode==='on' ? 'off' : 'on';
+  drawPickMode = drawMapMode==='on';
   const btn=document.getElementById('btn-draw-pick');
-  if(drawPickMode){
+  if(drawMapMode==='on'){
     btn.classList.add('btn-active-map');
+    btn.textContent='🖱 On';
     map3.getContainer().style.cursor='crosshair';
-    showToast('Tocca la mappa per scegliere la partenza');
   } else {
     btn.classList.remove('btn-active-map');
-    map3.getContainer().style.cursor='crosshair'; // keep crosshair (draw mode)
+    btn.textContent='🖱 Mappa';
+    map3.getContainer().style.cursor='';
   }
 }
 function drawSearchGo(){
@@ -830,47 +822,49 @@ document.getElementById('draw-search').addEventListener('input',function(){
 function drawUseGPS(){if(!gpsPos){showToast('Prima acquisisci il GPS');return;}drawAddStart(gpsPos.lat,gpsPos.lon);}
 function drawAddStart(lat,lon){drawAddNode(lat,lon);if(drawNodes.length===1)map3.setView([lat,lon],13);}
 
-async function drawAddNode(lat,lon){
-  if(drawPending)return;
-  // ── Immediate feedback: place marker NOW, fetch elevation in background ──
-  const idx=drawNodes.length;
-  const node={lat,lon,ele:null};
+// Non-blocking draw: each node is added immediately, routing resolves in bg
+function drawAddNode(lat, lon){
+  const idx = drawNodes.length;
+  const node = {lat, lon, ele:null};
   drawNodes.push(node);
-  const m=L.marker([lat,lon],{icon:makeDot(idx===0?'#3fb950':'#e03030',idx===0?18:13)}).addTo(map3);
+
+  // ── 1. Marker: immediate ──────────────────────────────────────────────────
+  const color = idx===0 ? '#3fb950' : '#e03030';
+  const size  = idx===0 ? 18 : 13;
+  const m = L.marker([lat,lon], {icon:makeDot(color, size)}).addTo(map3);
   drawNodeMarkers.push(m);
 
   if(idx===0){
     drawSegments.push([]);
     drawUpdateStatus();
-    // fetch elevation for start node in background (non-blocking)
-    fetchEleVal(lat,lon).then(ele=>{node.ele=ele;}).catch(()=>{});
+    fetchEleVal(lat,lon).then(ele=>{ node.ele=ele; }).catch(()=>{});
     return;
   }
 
-  drawPending=true;
-  const prev=drawNodes[idx-1];
-
-  // Draw a straight preview line instantly so user sees something immediately
-  const preview=lineSeg(prev,node);
-  drawSegments.push(preview);
-  redrawRoute();
-
-  // Then fetch real route + elevations in background
-  let seg;
-  if(drawSegMode==='line'){
-    seg=preview;
-  } else {
-    seg=await routeSeg(prev,node,drawSegMode)||preview;
-  }
-  seg=await enrichElevation(seg);
-
-  // Update the segment with final data
-  drawSegments[idx]=seg;
-  node.ele=seg[seg.length-1]?.ele??null;
-
-  drawPending=false;
+  // ── 2. Straight preview: immediate ───────────────────────────────────────
+  const prev = drawNodes[idx-1];
+  const preview = lineSeg(prev, node);
+  drawSegments[idx] = preview;   // may overwrite later with real route
   redrawRoute();
   drawUpdateStatus();
+
+  // ── 3. Real route + elevation: async, non-blocking ────────────────────────
+  (async()=>{
+    let seg;
+    if(drawSegMode==='line'){
+      seg = preview;
+    } else {
+      seg = await routeSeg(prev, node, drawSegMode) || preview;
+    }
+    seg = await enrichElevation(seg);
+    // Only apply if the segment still belongs to the current node index
+    if(drawSegments[idx] !== undefined){
+      drawSegments[idx] = seg;
+      node.ele = seg[seg.length-1]?.ele ?? null;
+      redrawRoute();
+      drawUpdateStatus();
+    }
+  })();
 }
 function redrawRoute(){
   if(drawPolyline){map3.removeLayer(drawPolyline);drawPolyline=null;}
@@ -906,7 +900,9 @@ function drawClear(){
   drawNodeMarkers.forEach(m=>map3.removeLayer(m));drawNodeMarkers=[];
   if(drawPolyline){map3.removeLayer(drawPolyline);drawPolyline=null;}
   drawNodes=[];drawSegments=[];drawPending=false;
-  document.getElementById('draw-search').value='';drawUpdateStatus();
+  document.getElementById('draw-search').value='';
+  // Keep drawMapMode as-is so user can continue drawing immediately
+  drawUpdateStatus();
 }
 function drawUpdateStatus(){
   const ap=drawSegments.flat(),n=drawNodes.length,dist=n>1?calcLen(ap):0;
